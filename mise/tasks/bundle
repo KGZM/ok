@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+# mise description="Assemble a self-contained kak bundle in dist/bundle/"
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$HOME/.cargo/env" 2>/dev/null || true
+
+HOST_ARCH="$(uname -m)"
+DIST_TARGET="${HOST_ARCH}-linux"
+BUNDLE="$REPO/dist/bundle"
+
+echo "==> building components for $DIST_TARGET"
+make -C "$REPO" --no-print-directory
+
+echo "==> assembling bundle at $BUNDLE"
+rm -rf "$BUNDLE"
+mkdir -p "$BUNDLE/bin" "$BUNDLE/share/kak/autoload" "$BUNDLE/share/kak-tree-sitter"
+
+LOCAL="$REPO/dist/local"
+
+# ── binaries ──────────────────────────────────────────────────────────────────
+# Rename kak → kak-real so our wrapper script can be named kak.
+cp "$LOCAL/bin/kak"              "$BUNDLE/bin/kak-real"
+cp "$LOCAL/bin/kak-lsp"          "$BUNDLE/bin/kak-lsp"
+cp "$LOCAL/bin/kak-tree-sitter"  "$BUNDLE/bin/kak-tree-sitter"
+cp "$LOCAL/bin/ktsctl"           "$BUNDLE/bin/ktsctl"
+
+# ── wrapper script ─────────────────────────────────────────────────────────────
+# Self-locating via readlink -f — works correctly when the binary is symlinked
+# from anywhere on PATH.
+cat > "$BUNDLE/bin/kak" << 'WRAPPER'
+#!/bin/sh
+SELF="$(readlink -f "$0")"
+BUNDLE="$(dirname "$(dirname "$SELF")")"
+mkdir -p "${XDG_RUNTIME_DIR:-/tmp/kak-runtime}"
+exec env \
+    KAKOUNE_RUNTIME="$BUNDLE/share/kak" \
+    KAK_TREE_SITTER_RUNTIME="$BUNDLE/share/kak-tree-sitter" \
+    XDG_DATA_HOME="$BUNDLE/share" \
+    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/kak-runtime}" \
+    PATH="$BUNDLE/bin:$PATH" \
+    "$BUNDLE/bin/kak-real" "$@"
+WRAPPER
+chmod +x "$BUNDLE/bin/kak"
+
+# ── kak runtime ───────────────────────────────────────────────────────────────
+# The standard runtime kakrc (defines colorscheme command, sources autoload,
+# then sources kakrc.local and ~/.config/kak/kakrc).
+cp "$LOCAL/share/kak/kakrc"    "$BUNDLE/share/kak/kakrc"
+cp -r "$LOCAL/share/kak/rc"    "$BUNDLE/share/kak/rc"
+cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
+ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
+
+# Vendor kak-lsp plugin scripts into autoload so kak loads them automatically.
+mkdir -p "$BUNDLE/share/kak/autoload/lsp"
+cp "$LOCAL/share/kak-lsp/rc/lsp.kak"     "$BUNDLE/share/kak/autoload/lsp/"
+cp "$LOCAL/share/kak-lsp/rc/servers.kak"  "$BUNDLE/share/kak/autoload/lsp/"
+
+# kakrc.local — sourced automatically by the runtime kakrc.
+# This is the wiring layer: tree-sitter + user config (anima when it exists).
+# Lives in the runtime dir so the bundle is fully self-contained without
+# requiring anything in ~/.config/kak/.
+cat > "$BUNDLE/share/kak/kakrc.local" << 'KAKRC_LOCAL'
+# Wire up kak-tree-sitter daemon at session start.
+# anima will eventually own this; for now it lives here.
+evaluate-commands %sh{
+    kak-tree-sitter --kakoune \
+        --init "$kak_session" \
+        --server --daemonize \
+        --with-highlighting \
+        --with-text-objects 2>>/tmp/kts-init.log
+}
+
+# User config. anima init prints kak script that registers all bindings,
+# hooks, and commands. Wrapped in try so startup succeeds without anima.
+try %{ evaluate-commands %sh{ anima init } }
+
+colorscheme default
+KAKRC_LOCAL
+
+# ── kak-tree-sitter runtime ───────────────────────────────────────────────────
+# kak-tree-sitter reads:
+#   KAK_TREE_SITTER_RUNTIME  → bundled queries and completions
+#   XDG_DATA_HOME/kak-tree-sitter/grammars → compiled .so files
+#   XDG_DATA_HOME/kak-tree-sitter/queries  → helix-sourced highlight queries
+#
+# We point both to inside the bundle.
+
+# Bundled queries (from kak-tree-sitter source — ktsctl-maintained)
+cp -r "$LOCAL/share/kak-tree-sitter/queries"     "$BUNDLE/share/kak-tree-sitter/queries"
+cp -r "$LOCAL/share/kak-tree-sitter/completions"  "$BUNDLE/share/kak-tree-sitter/completions"
+
+# Compiled grammars — kak-tree-sitter loads these via dlopen.
+# XDG_DATA_HOME is set to $BUNDLE/share so kak-tree-sitter finds them at
+# $BUNDLE/share/kak-tree-sitter/grammars/<lang>/<pin>.so
+if [ -d "$LOCAL/share/kak-tree-sitter/grammars" ]; then
+    cp -r "$LOCAL/share/kak-tree-sitter/grammars" "$BUNDLE/share/kak-tree-sitter/"
+fi
+
+# Helix-sourced highlight/textobject queries installed by ktsctl.
+# kak-tree-sitter finds these at XDG_DATA_HOME/kak-tree-sitter/queries/<lang>/<pin>/
+if [ -d "$LOCAL/share/kak-tree-sitter/kts-queries" ]; then
+    # Merge into share/kak-tree-sitter/queries alongside the bundled ones.
+    # ktsctl queries are in <lang>/<pin>/ subdirs; bundled are flat <lang>/.
+    # They coexist without conflict.
+    cp -r "$LOCAL/share/kak-tree-sitter/kts-queries/." "$BUNDLE/share/kak-tree-sitter/queries/"
+fi
+
+# ── summary ───────────────────────────────────────────────────────────────────
+GRAMMAR_COUNT=0
+if [ -d "$BUNDLE/share/kak-tree-sitter/grammars" ]; then
+    GRAMMAR_COUNT=$(ls "$BUNDLE/share/kak-tree-sitter/grammars" | wc -l)
+fi
+
+echo ""
+echo "==> bundle ready at $BUNDLE"
+echo ""
+echo "    binaries:"
+for b in kak kak-real kak-lsp kak-tree-sitter ktsctl; do
+    printf "      %-20s %s\n" "$b" "$(ls -lh "$BUNDLE/bin/$b" | awk '{print $5}')"
+done
+echo ""
+echo "    runtime:"
+printf "      %-20s %d files\n" "kak/rc (autoload)" "$(find "$BUNDLE/share/kak/rc" -name '*.kak' | wc -l)"
+printf "      %-20s %d grammars\n" "tree-sitter" "$GRAMMAR_COUNT"
+echo ""
+echo "    symlink kak onto PATH:"
+echo "      ln -sf $BUNDLE/bin/kak ~/.local/bin/kak"
+echo ""
+echo "    or run directly:"
+echo "      $BUNDLE/bin/kak [file]"

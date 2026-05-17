@@ -1,0 +1,36 @@
+# components.toml — pins the release of each component included in the bundle.
+#
+# CI in this repo reads these values to download prebuilt artifacts from the
+# respective GitHub fork releases and assemble the bundle.
+#
+# Workflow:
+#   1. A component's own CI (in its fork repo) produces a release with artifacts.
+#   2. Bump the [component].release field here to promote that release.
+#   3. This repo's CI assembles and publishes the new bundle.
+#
+# GitHub forks are pending gh auth login + repo setup (see STATUS.md).
+# Until forks exist, upstream_commit records what we have locally.
+
+[kak]
+# GitHub fork (pending): kgzm/kak
+# Upstream: https://github.com/mawww/kakoune
+upstream_commit = "2f7ac6f"  # master as of 2026-05-17
+# release = "v0.0.0"         # fill when fork CI produces first release
+
+[kak-lsp]
+# GitHub fork (pending): kgzm/kak-lsp
+# Upstream: https://github.com/kakoune-lsp/kakoune-lsp
+upstream_version = "20.0.0-snapshot"
+upstream_commit = "b090ff6"  # master as of 2026-05-17
+# release = "v0.0.0"
+
+[kak-tree-sitter]
+# GitHub fork (pending): kgzm/kak-tree-sitter
+# Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
+upstream_version = "3.2.1"
+upstream_commit = "e4e1d27"  # master as of 2026-05-17
+# release = "v0.0.0"
+#
+# NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
+# See: memory/feedback-kts-dlopen.md
+# Build flags: --features kak-tree-sitter/direct-unix-socket

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# mise description="Build all components and smoke-test kak startup"
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+DIST="$REPO/dist/local"
+KAK="$DIST/bin/kak"
+
+# ── build ────────────────────────────────────────────────────────────────────
+echo "==> building components"
+make -C "$REPO" --no-print-directory
+
+# ── preflight ────────────────────────────────────────────────────────────────
+for bin in kak kak-lsp kak-tree-sitter ktsctl; do
+    test -x "$DIST/bin/$bin" || { echo "MISSING: dist/local/bin/$bin"; exit 1; }
+done
+echo "    binaries: kak kak-lsp kak-tree-sitter ktsctl"
+
+# ── run kak headlessly ───────────────────────────────────────────────────────
+# Use JSON UI so we can inspect output without a terminal.
+# -n skips the user's ~/.config/kak/kakrc; we source ours via -E.
+# The kakrc uses `try` around anima init, so the missing binary is non-fatal.
+SESSION="kak-smoke-$$"
+TMPOUT=$(mktemp)
+
+(
+    export KAKOUNE_RUNTIME="$DIST/share/kak"
+    export KAK_TREE_SITTER_RUNTIME="$DIST/share/kak-tree-sitter"
+    export PATH="$DIST/bin:$PATH"
+    "$KAK" -ui json -n -s "$SESSION" \
+        -E "source $REPO/kakrc" \
+        -e "quit" \
+        > "$TMPOUT" 2>&1
+) &
+KAK_PID=$!
+
+# Give kak a moment to start and render, then check it exited cleanly.
+wait $KAK_PID
+KAK_EXIT=$?
+
+# ── check JSON output ────────────────────────────────────────────────────────
+if ! grep -q 'set_ui_options' "$TMPOUT" 2>/dev/null; then
+    echo "FAIL: kak did not initialize JSON UI (no set_ui_options)"
+    echo "--- kak output ---"
+    cat "$TMPOUT"
+    rm -f "$TMPOUT"
+    exit 1
+fi
+
+if grep -q '"error"' "$TMPOUT" 2>/dev/null; then  # kak error responses
+    echo "WARN: kak output contains errors:"
+    grep '"error"' "$TMPOUT"
+fi
+
+rm -f "$TMPOUT"
+
+if [ "$KAK_EXIT" -ne 0 ]; then
+    echo "FAIL: kak exited with status $KAK_EXIT"
+    exit 1
+fi
+
+# ── report ───────────────────────────────────────────────────────────────────
+echo ""
+echo "==> smoke test passed"
+printf "    kak             %s\n" "$("$DIST/bin/kak" -version 2>&1 | head -1)"
+printf "    kak-lsp         %s\n" "$("$DIST/bin/kak-lsp" --version 2>&1)"
+printf "    kak-tree-sitter %s\n" "$("$DIST/bin/kak-tree-sitter" --version 2>&1)"
+printf "    ktsctl          %s\n" "$("$DIST/bin/ktsctl" --version 2>&1)"

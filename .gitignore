@@ -1,0 +1,10 @@
+# subrepos — cloned separately; releases pinned in components.toml
+/kak/
+/kak-lsp/
+/kak-tree-sitter/
+
+# all build outputs — binaries, grammars, intermediate artifacts
+/dist/
+
+# jj internal state (manages its own git-backend tracking)
+/.jj/
