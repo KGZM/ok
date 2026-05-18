@@ -34,7 +34,19 @@
 # what y/d/c is about to put in the register.
 hook global NormalKey [ydc] %{
     nop %sh{
-        encoded=$(printf '%s' "$kak_selection" | base64 | tr -d '\n')
+        # $kak_quoted_selections is shell-quoted by kak — safe for selections
+        # containing spaces, newlines, or other special characters.
+        # Join all selections with newlines, matching what kak puts in the register.
+        eval set -- "$kak_quoted_selections"
+        joined=""
+        sep=""
+        while [ $# -gt 0 ]; do
+            joined="${joined}${sep}${1}"
+            sep="
+"
+            shift
+        done
+        encoded=$(printf '%s' "$joined" | base64 | tr -d '\n')
         printf '\033]52;c;%s\007' "$encoded" > /dev/tty
     }
 }
