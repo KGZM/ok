@@ -2,4 +2,4 @@
 zig = "0.16.0"
 rust = "stable"
 "cargo:cargo-zigbuild" = "latest"
-"github:janet-lang/janet" = "latest"
+"github:janet-lang/janet" = "1.41.2"
