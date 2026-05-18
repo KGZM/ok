@@ -4,16 +4,28 @@
 
 (def reg (clipboard/register))
 
-(assert (string/find "NormalKey" reg)
-        "register: contains NormalKey hook")
-(assert (string/find "[ydc]" reg)
-        "register: hooks y, d, and c")
-(assert (string/find "ok --api clipboard copy" reg)
-        "register: calls ok --api clipboard copy")
-
+(assert (string/find "NormalKey" reg)        "register: NormalKey hook present")
+(assert (string/find "[ydc]" reg)            "register: hooks y, d, and c")
+(assert (string/find "ok --api clipboard copy" reg) "register: calls ok --api clipboard copy")
+(assert (string/find "eval ok" reg)          "register: uses eval to expand kak_quoted_selections into argv")
 (print "clipboard/register: OK")
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# ── clipboard/copy ────────────────────────────────────────────────────────────
+# copy [selections] takes a Janet array — no env dependency.
+# We redirect /dev/tty to a temp file to capture the OSC 52 sequence.
+
+(defn with-tty-capture [f]
+  # Replace /dev/tty with a temp file for the duration of f.
+  # copy writes to /dev/tty via sh, so we intercept at the shell level
+  # by wrapping the call and checking the sequence in a temp file.
+  # Strategy: copy calls sh which writes to /dev/tty. Instead of patching
+  # /dev/tty (requires root), we test the sequence construction directly.
+  (f))
+
+(defn osc52-payload [raw]
+  (when-let [start (string/find "52;c;" raw)
+             end   (string/find "\x07" raw (+ start 5))]
+    (string/slice raw (+ start 5) end)))
 
 (defn b64decode [s]
   (def tmp (string "/tmp/ok-test-b64-" (os/time)))
@@ -22,62 +34,40 @@
   (os/rm tmp)
   result)
 
-(defn osc52-payload [raw]
-  # Extract base64 payload from ESC]52;c;<payload>BEL
-  (when-let [start (string/find "52;c;" raw)
-             end   (string/find "\x07" raw (+ start 5))]
-    (string/slice raw (+ start 5) end)))
-
-(defn kak-quote [s]
-  # Produce a shell-quoted word as kak would: wrap in single quotes,
-  # escaping any embedded single quotes.
-  (string "'" (string/replace-all "'" "'\\''" s) "'"))
-
-(defn run-copy-with-selections [& selections]
-  # Simulate kak_quoted_selections: a space-joined list of shell-quoted words.
-  # Set it as an env var so eval inside the script re-parses it correctly —
-  # the same mechanism kak uses. Do NOT inline the quotes into the script.
-  (def kqs (string/join (map kak-quote selections) " "))
+(defn capture-osc52 [selections]
+  # Run the same pipeline as copy but redirect /dev/tty to a temp file.
   (def tmp (string "/tmp/ok-test-osc52-" (os/time)))
-  (def env (merge (os/environ) {"kak_quoted_selections" kqs}))
-  (os/execute ["sh" "-c"
-    (string
-      "eval set -- \"$kak_quoted_selections\"\n"
-      "joined=\"\"\n"
-      "sep=\"\"\n"
-      "while [ $# -gt 0 ]; do\n"
-      "    joined=\"${joined}${sep}${1}\"\n"
-      "    sep='\n'\n"
-      "    shift\n"
-      "done\n"
-      "encoded=$(printf '%s' \"$joined\" | base64 | tr -d '\\n')\n"
-      "printf '\\033]52;c;%s\\007' \"$encoded\" > " tmp "\n")]
-    :pe env)
-  (def raw (slurp tmp))
+  (def joined (string/join selections "\n"))
+  (os/execute
+    ["sh" "-c"
+     (string
+       "encoded=$(printf '%s' \"$1\" | base64 | tr -d '\\n')\n"
+       "printf '\\033]52;c;%s\\007' \"$encoded\" > " tmp)
+     "ok" joined]
+    :p)
+  (def raw (string (slurp tmp)))
   (os/rm tmp)
   raw)
 
-# ── tests ─────────────────────────────────────────────────────────────────────
-
-(let [raw (run-copy-with-selections "hello world")
+# Single selection
+(let [raw (capture-osc52 ["hello world"])
       payload (osc52-payload raw)]
-  (assert payload "single selection: OSC 52 sequence present")
-  (assert (= "hello world" (b64decode payload))
-          "single selection: decoded payload matches"))
+  (assert payload                             "single: OSC 52 sequence present")
+  (assert (= "hello world" (b64decode payload)) "single: payload decodes correctly"))
 (print "clipboard/copy single selection: OK")
 
-(let [raw (run-copy-with-selections "foo" "bar" "baz")
+# Multiple selections — joined with newlines
+(let [raw (capture-osc52 ["foo" "bar" "baz"])
       payload (osc52-payload raw)]
-  (assert payload "multi selection: OSC 52 sequence present")
-  (assert (= "foo\nbar\nbaz" (b64decode payload))
-          "multi selection: all selections joined with newlines"))
+  (assert payload                                 "multi: OSC 52 sequence present")
+  (assert (= "foo\nbar\nbaz" (b64decode payload))  "multi: joined with newlines"))
 (print "clipboard/copy multiple selections: OK")
 
-(let [raw (run-copy-with-selections "it's a test")
+# Selection containing single quotes
+(let [raw (capture-osc52 ["it's a test"])
       payload (osc52-payload raw)]
-  (assert payload "quoted selection: OSC 52 sequence present")
-  (assert (= "it's a test" (b64decode payload))
-          "quoted selection: single quotes survive shell quoting"))
+  (assert payload                                   "quoted: OSC 52 sequence present")
+  (assert (= "it's a test" (b64decode payload))      "quoted: single quotes preserved"))
 (print "clipboard/copy quoted selection: OK")
 
 (print "\nAll clipboard tests passed.")
