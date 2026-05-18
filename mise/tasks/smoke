@@ -3,16 +3,18 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-DIST="$REPO/dist/local"
+HOST_ARCH="$(uname -m)"
+DIST_TARGET="${DIST_TARGET:-${HOST_ARCH}-linux}"
+DIST="$REPO/dist/$DIST_TARGET"
 KAK="$DIST/bin/kak"
 
 # ── build ────────────────────────────────────────────────────────────────────
-echo "==> building components"
-make -C "$REPO" --no-print-directory
+echo "==> building components for $DIST_TARGET"
+make -C "$REPO" --no-print-directory DIST_TARGET="$DIST_TARGET"
 
 # ── preflight ────────────────────────────────────────────────────────────────
 for bin in kak kak-lsp kak-tree-sitter ktsctl; do
-    test -x "$DIST/bin/$bin" || { echo "MISSING: dist/local/bin/$bin"; exit 1; }
+    test -x "$DIST/bin/$bin" || { echo "MISSING: dist/$DIST_TARGET/bin/$bin"; exit 1; }
 done
 echo "    binaries: kak kak-lsp kak-tree-sitter ktsctl"
 

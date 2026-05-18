@@ -6,17 +6,24 @@ REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 source "$HOME/.cargo/env" 2>/dev/null || true
 
 HOST_ARCH="$(uname -m)"
-DIST_TARGET="${HOST_ARCH}-linux"
-BUNDLE="$REPO/dist/bundle"
+DIST_TARGET="${DIST_TARGET:-${HOST_ARCH}-linux}"
+
+# Native build goes to dist/bundle; cross-builds go to dist/bundle-<target>
+# so they don't overwrite the native bundle you run day-to-day.
+if [ "$DIST_TARGET" = "${HOST_ARCH}-linux" ]; then
+    BUNDLE="$REPO/dist/bundle"
+else
+    BUNDLE="$REPO/dist/bundle-$DIST_TARGET"
+fi
 
 echo "==> building components for $DIST_TARGET"
-make -C "$REPO" --no-print-directory
+make -C "$REPO" --no-print-directory DIST_TARGET="$DIST_TARGET"
 
 echo "==> assembling bundle at $BUNDLE"
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/bin" "$BUNDLE/share/kak/autoload" "$BUNDLE/share/kak-tree-sitter"
 
-LOCAL="$REPO/dist/local"
+LOCAL="$REPO/dist/$DIST_TARGET"
 
 # ── binaries ──────────────────────────────────────────────────────────────────
 # Rename kak → kak-real so our wrapper script can be named kak.
@@ -46,9 +53,10 @@ chmod +x "$BUNDLE/bin/kak"
 # ── kak runtime ───────────────────────────────────────────────────────────────
 # The standard runtime kakrc (defines colorscheme command, sources autoload,
 # then sources kakrc.local and ~/.config/kak/kakrc).
-cp "$LOCAL/share/kak/kakrc"    "$BUNDLE/share/kak/kakrc"
-cp -r "$LOCAL/share/kak/rc"    "$BUNDLE/share/kak/rc"
+cp "$LOCAL/share/kak/kakrc"     "$BUNDLE/share/kak/kakrc"
+cp -r "$LOCAL/share/kak/rc"     "$BUNDLE/share/kak/rc"
 cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
+cp -r "$LOCAL/share/kak/doc"    "$BUNDLE/share/kak/doc"
 ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
 
 # Vendor kak-lsp plugin scripts into autoload so kak loads them automatically.

@@ -1,6 +1,6 @@
 # kak-emporium — Current Status
 
-Last updated: 2026-05-17 (end of day 2)
+Last updated: 2026-05-18
 
 ---
 
@@ -23,15 +23,17 @@ dist/bundle/bin/kak somefile.rs
 ```
 kak-emporium/
 ├── mise.toml                  # zig 0.16.0, rust stable, cargo-zigbuild
-├── Makefile                   # top-level: make / make run
+├── Makefile                   # top-level: make / make aarch64 / make run
+├── components.toml            # pins subrepo release versions (populated when forks exist)
 ├── kakrc                      # repo kakrc (sourced by kak via -E)
 ├── mise/tasks/bundle          # mise run bundle — assemble dist/bundle/
 ├── mise/tasks/smoke           # mise run smoke — headless startup test
-├── kak/                       # kakoune (upstream clone, CI workflow ready)
-├── kak-lsp/                   # kak-lsp (upstream clone, CI workflow ready)
-├── kak-tree-sitter/           # kak-tree-sitter (sr.ht/~hadronized)
-├── dist/bundle/               # self-contained runnable bundle (symlink kak from here)
-└── dist/local/                # intermediate build outputs
+├── kak/                       # kakoune fork (gitignored — own repo)
+├── kak-lsp/                   # kak-lsp fork (gitignored — own repo)
+├── kak-tree-sitter/           # kak-tree-sitter fork (gitignored — own repo)
+├── dist/bundle/               # native host bundle (symlink kak from here)
+├── dist/bundle-aarch64-linux/ # cross-built aarch64 bundle (after make aarch64)
+└── dist/x86_64-linux/         # staged build outputs (intermediate, gitignored)
 ```
 
 ---
@@ -52,9 +54,9 @@ kak-emporium/
 - CI workflow: `kak-lsp/.github/workflows/release.yml` ready
 - **Pending:** fork kakoune-lsp/kakoune-lsp → push workflow
 
-### kak-tree-sitter — WORKING locally (x86_64 only)
+### kak-tree-sitter — WORKING locally (x86_64); aarch64 ready to build
 
-**215 grammars compiled and bundled. Highlighting and text objects confirmed working.**
+**216 grammars compiled and bundled. Highlighting and text objects confirmed working.**
 
 #### Critical constraints discovered this session
 
@@ -172,12 +174,18 @@ mise install                   # zig 0.16.0, rust stable, cargo-zigbuild
 # Run the working bundle:
 dist/bundle/bin/kak somefile.rs
 
-# Rebuild bundle from scratch (if needed):
-mise run bundle
+# Rebuild host-arch bundle from scratch:
+mise run bundle                # reads dist/x86_64-linux/, writes dist/bundle/
 
-# The kak-tree-sitter binary in the bundle is glibc (not musl).
-# The Makefile in kak-tree-sitter/ now builds glibc for both arches.
-# Grammar .so files are musl-compiled but work fine.
+# Build for aarch64 (cross-compile):
+make aarch64                   # writes dist/aarch64-linux/
+DIST_TARGET=aarch64-linux mise run bundle   # writes dist/bundle-aarch64-linux/
+
+# Rebuild just one component (host arch):
+make kak                       # or kak-lsp, kak-tree-sitter
+
+# Docs: :doc now works — kak package target includes share/kak/doc/*.asciidoc
+# Requires a rebuild (mise run bundle) to take effect in the bundle.
 
 # GitHub auth (whenever ready):
 gh auth login
