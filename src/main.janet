@@ -10,7 +10,7 @@
 
 (defn- api-dispatch [argv]
   (case (get argv 0)
-    "init"      (init/run)
+    "init"      (init/run (array/slice argv 1))
     "clipboard" (clipboard/dispatch (array/slice argv 1))
     "splash"    (splash/dispatch (array/slice argv 1))
     (do
@@ -66,7 +66,9 @@
     (when (and session (nil? explicit))
       (array/concat cmd ["-C" session]))
     (when new?
-      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
+      # %val{session} is expanded by kak before the shell runs — unlike
+      # $kak_session which is not set in %sh{} during -E server initialisation.
+      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init %val{session} }"]))
     # Show splash on client init when no files were given.
     (when (not (file-args? argv))
       (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} }"]))
