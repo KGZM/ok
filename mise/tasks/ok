@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# mise description="Run ok directly from source (dev mode)"
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+exec janet "$REPO/src/main.janet" "$@"

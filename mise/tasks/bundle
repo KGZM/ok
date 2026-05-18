@@ -50,6 +50,23 @@ exec env \
 WRAPPER
 chmod +x "$BUNDLE/bin/kak"
 
+# ── ok (overk entrypoint) ─────────────────────────────────────────────────────
+# Release: use the compiled binary produced by jpm build.
+# Dev:     generate a janet shim and symlink src/ so edits are live immediately.
+if [ -f "$REPO/bin/ok" ]; then
+    cp "$REPO/bin/ok" "$BUNDLE/bin/ok"
+    chmod +x "$BUNDLE/bin/ok"
+else
+    ln -sf "$REPO/src" "$BUNDLE/src"
+    cat > "$BUNDLE/bin/ok" << 'OK_SHIM'
+#!/bin/sh
+SELF="$(readlink -f "$0")"
+BUNDLE="$(dirname "$(dirname "$SELF")")"
+exec janet "$BUNDLE/src/main.janet" "$@"
+OK_SHIM
+    chmod +x "$BUNDLE/bin/ok"
+fi
+
 # ── kak runtime ───────────────────────────────────────────────────────────────
 # The standard runtime kakrc (defines colorscheme command, sources autoload,
 # then sources kakrc.local and ~/.config/kak/kakrc).

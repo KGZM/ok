@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# mise description="Compile ok to a native binary via jpm (release mode)"
+#
+# Janet's compilation model: janet → C → native binary.
+# Requires: janet (for jpm), a C compiler (we use zig cc).
+#
+# Output: bin/ok — copy this into the bundle via mise run bundle.
+#
+# CI notes:
+#   - Install janet via: mise install
+#   - C compiler: zig cc (already in toolchain via mise)
+#   - jpm is bundled with janet; no separate install needed
+#   - Cross-compilation: jpm does not support cross-compile directly.
+#     For aarch64: run on an aarch64 runner (GitHub Actions macos-14 for arm,
+#     or a native linux/aarch64 runner).
+set -euo pipefail
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+
+export CC="zig cc"
+export CXX="zig c++"
+
+cd "$REPO"
+jpm build
+
+echo "==> ok compiled to $REPO/bin/ok"
+echo "    run 'mise run bundle' to include it in the bundle"

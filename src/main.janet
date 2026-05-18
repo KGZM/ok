@@ -14,6 +14,9 @@
     (os/exit (os/execute cmd :p))))
 
 (defn main [& args]
-  (case (get args 0)
-    "init" (init/run)
-    (launch (array/slice args 0))))
+  # args[0] is the script name (interpreted) or binary name (compiled).
+  # The real subcommand is always at args[1].
+  (let [argv (array/slice args 1)]
+    (case (get argv 0)
+      "init" (init/run)
+      (launch argv))))

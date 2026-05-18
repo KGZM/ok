@@ -6,5 +6,8 @@
 # all build outputs — binaries, grammars, intermediate artifacts
 /dist/
 
+# compiled ok binary — produced by mise run build-ok (jpm output)
+/bin/
+
 # jj internal state (manages its own git-backend tracking)
 /.jj/
