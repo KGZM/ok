@@ -18,7 +18,7 @@
 # ── metrics ───────────────────────────────────────────────────────────────────
 
 (defn- proc-running? [pattern]
-  (= 0 (os/execute ["sh" "-c" (string "pgrep -f " pattern " > /dev/null 2>&1")] :p)))
+  (= 0 (os/execute ["sh" "-c" (string "pgrep -f '" pattern "' > /dev/null 2>&1")] :p)))
 
 (defn- dir-count [path]
   (length (try (os/dir path) ([_] @[]))))
@@ -35,15 +35,19 @@
       (string "x11     (" (os/getenv "DISPLAY") ")")
     "none detected"))
 
-(defn- gather []
+(defn- gather [session]
   (def xdg-data (or (os/getenv "XDG_DATA_HOME")
                     (string (os/getenv "HOME") "/.local/share")))
   (def grammar-dir (string xdg-data "/kak-tree-sitter/grammars"))
   (def grammar-count (dir-count grammar-dir))
-  (def kts-ok (proc-running? "kak-tree-sitter"))
+  # Use session-specific pattern so we don't false-positive on other sessions.
+  (def kts-pattern (if session
+                     (string "kak-tree-sitter.*" session)
+                     "kak-tree-sitter"))
+  (def kts-ok (proc-running? kts-pattern))
   (def lsp-ok (proc-running? "kak-lsp"))
 
-  @{:session    (or (os/getenv "kak_session") "unknown")
+  @{:session    (or session (os/getenv "kak_session") "unknown")
     :windowing  (windowing)
     :kts-ok     kts-ok
     :kts-detail (if kts-ok
@@ -81,8 +85,9 @@
 # ── kak script emission ───────────────────────────────────────────────────────
 
 (defn show [argv]
-  (def width (or (scan-number (get argv 0 "")) 80))
-  (def metrics (gather))
+  (def width   (or (scan-number (get argv 0 "")) 80))
+  (def session (get argv 1))
+  (def metrics (gather session))
   (def mlines (metric-lines metrics))
 
   # Assemble full buffer content: centered logo + blank line + centered metrics

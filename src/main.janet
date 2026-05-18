@@ -71,7 +71,9 @@
       (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init %val{session} }"]))
     # Show splash on client init when no files were given.
     (when (not (file-args? argv))
-      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} }"]))
+      # Pass both window width and session name — $kak_session is available
+      # during -e (client init) unlike -E, but %val{} expansion is cleaner.
+      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} %val{session} }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
