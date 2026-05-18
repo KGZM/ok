@@ -23,4 +23,7 @@
     "\n"
     "colorscheme default\n"
     "\n"
+    # Status line: {keyword} makes "ok" use the theme's keyword face
+    "set-option global modelinefmt '{keyword}ok{Default} ── %val{bufname} {{context_info}} {{mode_info}} - %val{client}@{type}%val{session}{Default}'\n"
+    "\n"
     (clipboard/register))))

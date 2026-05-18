@@ -15,27 +15,87 @@
              overk
   ``)
 
+# ── metrics ───────────────────────────────────────────────────────────────────
+
+(defn- proc-running? [pattern]
+  (= 0 (os/execute ["sh" "-c" (string "pgrep -f " pattern " > /dev/null 2>&1")] :p)))
+
+(defn- dir-count [path]
+  (length (try (os/dir path) ([_] @[]))))
+
+(defn- windowing []
+  (cond
+    (os/getenv "ZELLIJ_SESSION_NAME")
+      (string "zellij  (" (os/getenv "ZELLIJ_SESSION_NAME") ")")
+    (os/getenv "TMUX")
+      "tmux"
+    (os/getenv "WAYLAND_DISPLAY")
+      (string "wayland (" (os/getenv "WAYLAND_DISPLAY") ")")
+    (os/getenv "DISPLAY")
+      (string "x11     (" (os/getenv "DISPLAY") ")")
+    "none detected"))
+
+(defn- gather []
+  (def xdg-data (or (os/getenv "XDG_DATA_HOME")
+                    (string (os/getenv "HOME") "/.local/share")))
+  (def grammar-dir (string xdg-data "/kak-tree-sitter/grammars"))
+  (def grammar-count (dir-count grammar-dir))
+  (def kts-ok (proc-running? "kak-tree-sitter"))
+  (def lsp-ok (proc-running? "kak-lsp"))
+
+  @{:session    (or (os/getenv "kak_session") "unknown")
+    :windowing  (windowing)
+    :kts-ok     kts-ok
+    :kts-detail (if kts-ok
+                  (string "✓  running   (" grammar-count " grammars)")
+                  "✗  not running")
+    :lsp-ok     lsp-ok
+    :lsp-detail (if lsp-ok "✓  loaded" "✗  not loaded")
+    :arch       (or (os/getenv "KAK_ARCH") (do
+                  (def tmp "/tmp/ok-arch")
+                  (os/execute ["sh" "-c" (string "uname -m > " tmp)] :p)
+                  (string/trimr (string (slurp tmp)))))})
+
+(defn- metric-lines [m]
+  (def w 14) # label column width
+  (def fmt (fn [label val] (string/format (string "  %-" w "s  %s") label val)))
+  @[(fmt "session"     (m :session))
+    (fmt "windowing"   (m :windowing))
+    (fmt "tree-sitter" (m :kts-detail))
+    (fmt "kak-lsp"     (m :lsp-detail))
+    (fmt "arch"        (m :arch))])
+
+# ── layout ────────────────────────────────────────────────────────────────────
+
 (defn- max-line-width [text]
-  (reduce (fn [acc line] (max acc (length line)))
-          0
-          (string/split "\n" text)))
+  (reduce (fn [acc l] (max acc (length l))) 0 (string/split "\n" text)))
 
 (defn- center [text width]
-  (def logo-width (max-line-width text))
-  (def pad (max 0 (div (- width logo-width) 2)))
+  (def lw (max-line-width text))
+  (def pad (max 0 (div (- width lw) 2)))
   (def prefix (string/repeat " " pad))
   (string/join
-    (map (fn [line] (string prefix line))
-         (string/split "\n" text))
+    (map (fn [l] (string prefix l)) (string/split "\n" text))
     "\n"))
 
-(defn show
-  "Emits kak script to open a *splash* scratch buffer with the centered logo.
-  argv[0] is the terminal width passed as %val{window_width} from kak."
-  [argv]
+# ── kak script emission ───────────────────────────────────────────────────────
+
+(defn show [argv]
   (def width (or (scan-number (get argv 0 "")) 80))
-  (def content (center logo width))
+  (def metrics (gather))
+  (def mlines (metric-lines metrics))
+
+  # Assemble full buffer content: centered logo + blank line + centered metrics
+  (def metrics-block (string/join mlines "\n"))
+  (def content (string
+    (center logo width)
+    "\n\n"
+    (center metrics-block width)
+    "\n"))
+
+  # kak string quoting: escape single quotes
   (def escaped (string/replace-all "'" "\\'" content))
+
   (print (string
     "edit -scratch *splash*\n"
     "set-option buffer filetype scratch\n"
@@ -43,6 +103,16 @@
     "set-register '\"' '" escaped "'\n"
     "execute-keys 'P'\n"
     "execute-keys 'gg'\n"
+    # Faces — all use kak built-in theme-aware names.
+    # Labels (e.g. "session") → keyword face
+    "add-highlighter buffer/ok_labels  regex '^\\s+([\\w-]+)\\s{2,}' 1:keyword\n"
+    # ✓ → Information (green in most themes), ✗ → Error (red)
+    "add-highlighter buffer/ok_good    regex '✓[^\\n]*' 0:Information\n"
+    "add-highlighter buffer/ok_bad     regex '✗[^\\n]*' 0:Error\n"
+    # "overk" name in logo → function face
+    "add-highlighter buffer/ok_name    regex 'overk' 0:function\n"
+    # The art bar at top → comment face (muted, decorative)
+    "add-highlighter buffer/ok_bar     regex '_+' 0:comment\n"
     "set-option buffer readonly true\n")))
 
 (defn dispatch [argv]
