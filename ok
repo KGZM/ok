@@ -1,0 +1,11 @@
+#!/bin/sh
+# Development wrapper — symlink to ~/.local/bin/ok.
+# Runs ok directly from source; no build step needed.
+# For release, replace with the compiled binary from mise run build-ok.
+SELF="$(readlink -f "$0")"
+REPO="$(dirname "$SELF")"
+if command -v janet > /dev/null 2>&1; then
+    exec janet "$REPO/src/main.janet" "$@"
+else
+    exec mise exec -- janet "$REPO/src/main.janet" "$@"
+fi
