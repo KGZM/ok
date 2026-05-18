@@ -1,24 +1,35 @@
 (import ./session)
 (import ./init)
+(import ./clipboard)
 
-# ── API dispatch ──────────────────────────────────────────────────────────────
-# Called from within kak via %sh{} blocks — not user-facing.
-# ok --api <cmd> [args...]
+# ── --api dispatch ────────────────────────────────────────────────────────────
+# Kak-facing API. Called from kak %sh{} blocks, never by users.
+# ok --api init
+# ok --api <module> <cmd> [args...]
 
 (defn- api-dispatch [argv]
   (case (get argv 0)
-    "init" (init/run)
+    "init"      (init/run)
+    "clipboard" (clipboard/dispatch (array/slice argv 1))
     (do
-      (eprintf "ok --api: unknown command '%s'" (get argv 0 ""))
+      (eprintf "ok --api: unknown module '%s'\n" (get argv 0 ""))
       (os/exit 1))))
+
+# ── --ipc dispatch ────────────────────────────────────────────────────────────
+# Socket-based IPC from kak to ok daemon. Separate namespace from --api.
+# ok --ipc <cmd> [args...]
+# Not yet implemented — placeholder for future bidirectional communication.
+
+(defn- ipc-dispatch [argv]
+  (eprintf "ok --ipc: not yet implemented\n")
+  (os/exit 1))
 
 # ── launcher ──────────────────────────────────────────────────────────────────
 # ok [files] [kak-flags]
 #
 # Detects windowing session, injects ok --api init into kak startup,
 # passes all remaining args straight through to kak.
-#
-# -s <name> in user args wins over session detection — explicit beats implicit.
+# -s <name> in user args wins over session detection.
 
 (defn- has-flag? [argv flag]
   (var found false)
@@ -27,7 +38,7 @@
 
 (defn- launch [argv]
   (let [session (if (has-flag? argv "-s")
-                  nil                  # user explicitly named a session
+                  nil
                   (session/detect))
         cmd @["kak"]]
     (when session
@@ -41,6 +52,7 @@
 (defn main [& args]
   # args[0] is script/binary name — skip it.
   (let [argv (array/slice args 1)]
-    (if (= (get argv 0) "--api")
-      (api-dispatch (array/slice argv 1))
+    (case (get argv 0)
+      "--api" (api-dispatch (array/slice argv 1))
+      "--ipc" (ipc-dispatch (array/slice argv 1))
       (launch argv))))
