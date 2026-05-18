@@ -24,13 +24,18 @@ hook global NormalKey [ydc] %{
   Called from kak: nop %sh{ ok --api clipboard copy }
   Reads $kak_quoted_selections from the environment (set by kak in %sh{})."
   []
-  # $kak_quoted_selections is shell-quoted by kak — use a sh subprocess to
-  # safely parse it (handles selections containing spaces, newlines, quotes).
-  # Join all selections with newlines, matching what kak puts in the register.
   (os/execute
     ["sh" "-c"
-     ```
-eval set -- $kak_quoted_selections
+     `
+LOG=/tmp/ok-clip.log
+printf '\n=== ok clipboard copy ===\n' >> "$LOG"
+printf 'kak_quoted_selections: %s\n' "$kak_quoted_selections" >> "$LOG"
+printf 'tty: %s\n' "$(ls -la /dev/tty 2>&1)" >> "$LOG"
+printf 'tty writable: %s\n' "$(echo x > /dev/tty 2>&1 && echo yes || echo no)" >> "$LOG"
+
+eval set -- "$kak_quoted_selections"
+printf 'selection count: %d\n' "$#" >> "$LOG"
+
 joined=""
 sep=""
 while [ $# -gt 0 ]; do
@@ -39,9 +44,14 @@ while [ $# -gt 0 ]; do
 "
     shift
 done
+printf 'joined length: %d\n' "${#joined}" >> "$LOG"
+
 encoded=$(printf '%s' "$joined" | base64 | tr -d '\n')
-printf '\033]52;c;%s\007' "$encoded" > /dev/tty
-```]
+printf 'encoded: %s\n' "$encoded" >> "$LOG"
+
+printf '\033]52;c;%s\007' "$encoded" > /dev/tty 2>> "$LOG"
+printf 'osc52 exit: %d\n' "$?" >> "$LOG"
+`]
     :p))
 
 (defn dispatch [argv]
