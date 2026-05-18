@@ -57,13 +57,16 @@ exec env \
 WRAPPER
 chmod +x "$BUNDLE/bin/kak"
 
-# ── ok (release only) ─────────────────────────────────────────────────────────
-# In release: copy compiled binary produced by mise run build-ok.
-# In dev: ok is absent from the bundle — kak's PATH fallback finds
-#         ~/.local/bin/ok (the repo-root dev shim) instead.
+# ── ok ────────────────────────────────────────────────────────────────────────
+# Release: copy compiled binary from bin/ok (produced by mise run build-ok).
+# Dev:     symlink the repo-root wrapper so kak's PATH="$BUNDLE/bin:$PATH"
+#          always finds ok without relying on the user's shell PATH (which
+#          sh — used by kak's %sh{} — may not inherit from fish etc.).
 if [ -f "$REPO/bin/ok" ]; then
     cp "$REPO/bin/ok" "$BUNDLE/bin/ok"
     chmod +x "$BUNDLE/bin/ok"
+else
+    ln -sf "$REPO/ok" "$BUNDLE/bin/ok"
 fi
 
 # ── vanilla kak runtime ───────────────────────────────────────────────────────
@@ -106,10 +109,10 @@ echo "    binaries:"
 for b in kak-real kak-lsp kak-tree-sitter ktsctl; do
     printf "      %-20s %s\n" "$b" "$(ls -lh "$BUNDLE/bin/$b" | awk '{print $5}')"
 done
-if [ -f "$BUNDLE/bin/ok" ]; then
+if [ -f "$REPO/bin/ok" ]; then
     printf "      %-20s %s\n" "ok (compiled)" "$(ls -lh "$BUNDLE/bin/ok" | awk '{print $5}')"
 else
-    printf "      %-20s %s\n" "ok" "(dev — resolved via PATH)"
+    printf "      %-20s %s\n" "ok (dev symlink)" "→ $REPO/ok"
 fi
 echo ""
 echo "    runtime:"
