@@ -4,23 +4,15 @@
 
 (def reg (clipboard/register))
 
-(assert (string/find "NormalKey" reg)        "register: NormalKey hook present")
-(assert (string/find "[ydc]" reg)            "register: hooks y, d, and c")
+(assert (string/find "NormalKey" reg)               "register: NormalKey hook present")
+(assert (string/find "[ydc]" reg)                   "register: hooks y, d, and c")
 (assert (string/find "ok --api clipboard copy" reg) "register: calls ok --api clipboard copy")
-(assert (string/find "eval ok" reg)          "register: uses eval to expand kak_quoted_selections into argv")
+(assert (string/find "printf '%s' \"$text\"" reg)   "register: pipes via stdin (printf to ok)")
 (print "clipboard/register: OK")
 
-# ── clipboard/copy ────────────────────────────────────────────────────────────
-# copy [selections] takes a Janet array — no env dependency.
-# We redirect /dev/tty to a temp file to capture the OSC 52 sequence.
-
-(defn with-tty-capture [f]
-  # Replace /dev/tty with a temp file for the duration of f.
-  # copy writes to /dev/tty via sh, so we intercept at the shell level
-  # by wrapping the call and checking the sequence in a temp file.
-  # Strategy: copy calls sh which writes to /dev/tty. Instead of patching
-  # /dev/tty (requires root), we test the sequence construction directly.
-  (f))
+# ── OSC 52 encoding pipeline ──────────────────────────────────────────────────
+# Tests the shell encoding logic independently of stdin/tty.
+# copy reads stdin → same pipeline → /dev/tty. The encoding is what matters.
 
 (defn osc52-payload [raw]
   (when-let [start (string/find "52;c;" raw)
@@ -34,40 +26,52 @@
   (os/rm tmp)
   result)
 
-(defn capture-osc52 [selections]
-  # Run the same pipeline as copy but redirect /dev/tty to a temp file.
+(defn encode-osc52 [text]
+  # Run the same pipeline as copy but capture output instead of writing to tty.
   (def tmp (string "/tmp/ok-test-osc52-" (os/time)))
-  (def joined (string/join selections "\n"))
   (os/execute
     ["sh" "-c"
      (string
        "encoded=$(printf '%s' \"$1\" | base64 | tr -d '\\n')\n"
        "printf '\\033]52;c;%s\\007' \"$encoded\" > " tmp)
-     "ok" joined]
+     "ok" text]
     :p)
   (def raw (string (slurp tmp)))
   (os/rm tmp)
   raw)
 
 # Single selection
-(let [raw (capture-osc52 ["hello world"])
-      payload (osc52-payload raw)]
-  (assert payload                             "single: OSC 52 sequence present")
-  (assert (= "hello world" (b64decode payload)) "single: payload decodes correctly"))
-(print "clipboard/copy single selection: OK")
+(let [raw (encode-osc52 "hello world")
+      p   (osc52-payload raw)]
+  (assert p                               "single: OSC 52 sequence present")
+  (assert (= "hello world" (b64decode p)) "single: payload decodes correctly"))
+(print "OSC 52 single selection: OK")
 
-# Multiple selections — joined with newlines
-(let [raw (capture-osc52 ["foo" "bar" "baz"])
-      payload (osc52-payload raw)]
-  (assert payload                                 "multi: OSC 52 sequence present")
-  (assert (= "foo\nbar\nbaz" (b64decode payload))  "multi: joined with newlines"))
-(print "clipboard/copy multiple selections: OK")
+# Multiple selections joined with newlines (as the kak hook does)
+(let [raw (encode-osc52 "foo\nbar\nbaz")
+      p   (osc52-payload raw)]
+  (assert p                                   "multi: OSC 52 sequence present")
+  (assert (= "foo\nbar\nbaz" (b64decode p))    "multi: newline-joined selections preserved"))
+(print "OSC 52 multiple selections: OK")
 
-# Selection containing single quotes
-(let [raw (capture-osc52 ["it's a test"])
-      payload (osc52-payload raw)]
-  (assert payload                                   "quoted: OSC 52 sequence present")
-  (assert (= "it's a test" (b64decode payload))      "quoted: single quotes preserved"))
-(print "clipboard/copy quoted selection: OK")
+# Single quotes in content
+(let [raw (encode-osc52 "it's a test")
+      p   (osc52-payload raw)]
+  (assert p                                 "quoted: OSC 52 sequence present")
+  (assert (= "it's a test" (b64decode p))   "quoted: single quotes preserved"))
+(print "OSC 52 quoted content: OK")
+
+# ── copy reads stdin ──────────────────────────────────────────────────────────
+# Smoke test: pipe text to ok --api clipboard copy and confirm it exits 0.
+# (Can't check tty output in a test environment — encoding is tested above.)
+
+(def ok-bin (string (os/cwd) "/ok"))
+(when (os/stat ok-bin)
+  (def exit-code
+    (os/execute
+      ["sh" "-c" (string "printf '%s' 'hello' | " ok-bin " --api clipboard copy 2>/dev/null")]
+      :p))
+  (assert (= 0 exit-code) "copy: exits 0 when called with piped stdin"))
+(print "clipboard/copy stdin: OK")
 
 (print "\nAll clipboard tests passed.")
