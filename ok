@@ -4,6 +4,8 @@
 # For release, replace with the compiled binary from mise run build-ok.
 SELF="$(readlink -f "$0")"
 REPO="$(dirname "$SELF")"
+# Put the bundle's bin on PATH so ok can find kak, kak-tree-sitter, etc.
+export PATH="$REPO/dist/bundle/bin:$PATH"
 if command -v janet > /dev/null 2>&1; then
     exec janet "$REPO/src/main.janet" "$@"
 else

@@ -31,19 +31,27 @@
 # passes all remaining args straight through to kak.
 # -s <name> in user args wins over session detection.
 
-(defn- has-flag? [argv flag]
-  (var found false)
-  (each a argv (when (= a flag) (set found true)))
-  found)
+(defn- flag-value [argv flag]
+  # Returns the value after flag in argv, e.g. ["-s" "work"] -> "work"
+  (var result nil)
+  (forv i 0 (- (length argv) 1)
+    (when (= (get argv i) flag)
+      (set result (get argv (+ i 1)))))
+  result)
 
 (defn- launch [argv]
-  (let [session (if (has-flag? argv "-s")
-                  nil
-                  (session/detect))
-        cmd @["kak"]]
-    (when session
+  # Determine effective session: explicit -s wins over windowing detection.
+  (let [explicit (flag-value argv "-s")
+        detected (when (nil? explicit) (session/detect))
+        session  (or explicit detected)
+        # Only inject -E init when actually creating a new server.
+        new?     (or (nil? session) (not (session/exists? session)))
+        cmd      @["kak"]]
+    # Add -C for detected sessions only (explicit -s is already in argv).
+    (when (and session (nil? explicit))
       (array/concat cmd ["-C" session]))
-    (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"])
+    (when new?
+      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
