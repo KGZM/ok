@@ -392,6 +392,32 @@ In `mise.toml` (this repo or user's dotfiles):
 
 ---
 
+## Known Exclusions and Build Quirks
+
+### kak-tree-sitter: C++ scanner grammars excluded locally
+
+Six grammars are excluded from the local zig-based build because their C++
+scanners cause `zig c++` to hang during the link step:
+
+| Grammar | Notes |
+|---------|-------|
+| `yaml`  | C++ scanner, links `-lstdc++` |
+| `html`  | C++ scanner |
+| `sql`   | C++ scanner (m-novikov grammar) |
+| `cmake` | C++ scanner |
+| `ruby`  | C++ scanner |
+| `vue`   | C++ scanner |
+
+These compile fine with a standard `g++` toolchain (e.g. GitHub Actions
+runners). When CI is wired up, include them there so the release artifact has
+the full grammar set. To fix locally: patch the zig cc wrapper to fall back to
+system `g++` for link steps that require `-lstdc++`, or upgrade zig if the
+hang is version-specific.
+
+Exclusion list lives in `kak-tree-sitter/Makefile` under `LANGUAGES`.
+
+---
+
 ## Open Questions
 
 - **Runtime path for kak**: should kak look for its scripts in
