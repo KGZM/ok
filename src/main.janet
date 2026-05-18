@@ -1,6 +1,7 @@
 (import ./session)
 (import ./init)
 (import ./clipboard)
+(import ./splash)
 
 # ── --api dispatch ────────────────────────────────────────────────────────────
 # Kak-facing API. Called from kak %sh{} blocks, never by users.
@@ -11,6 +12,7 @@
   (case (get argv 0)
     "init"      (init/run)
     "clipboard" (clipboard/dispatch (array/slice argv 1))
+    "splash"    (splash/dispatch (array/slice argv 1))
     (do
       (eprintf "ok --api: unknown module '%s'\n" (get argv 0 ""))
       (os/exit 1))))
@@ -39,19 +41,35 @@
       (set result (get argv (+ i 1)))))
   result)
 
+(defn- file-args? [argv]
+  # Returns true if argv contains any element that isn't a flag or flag value.
+  # A file arg is anything not starting with -, accounting for flags that
+  # consume the next element (-s -c -C -e -E -p -f -i -ui -debug).
+  (def flag-with-value {"-s" true "-c" true "-C" true "-e" true "-E" true
+                        "-p" true "-f" true "-i" true "-ui" true "-debug" true})
+  (var skip false)
+  (var found false)
+  (each a argv
+    (cond
+      skip          (set skip false)
+      (flag-with-value a) (set skip true)
+      (string/has-prefix? "-" a) nil
+      (set found true)))
+  found)
+
 (defn- launch [argv]
-  # Determine effective session: explicit -s wins over windowing detection.
   (let [explicit (flag-value argv "-s")
         detected (when (nil? explicit) (session/detect))
         session  (or explicit detected)
-        # Only inject -E init when actually creating a new server.
         new?     (or (nil? session) (not (session/exists? session)))
         cmd      @["kak"]]
-    # Add -C for detected sessions only (explicit -s is already in argv).
     (when (and session (nil? explicit))
       (array/concat cmd ["-C" session]))
     (when new?
       (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
+    # Show splash on client init when no files were given.
+    (when (not (file-args? argv))
+      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
