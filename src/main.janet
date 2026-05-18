@@ -71,9 +71,9 @@
       (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init %val{session} }"]))
     # Show splash on client init when no files were given.
     (when (not (file-args? argv))
-      # Pass both window width and session name — $kak_session is available
-      # during -e (client init) unlike -E, but %val{} expansion is cleaner.
-      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} %val{session} }"]))
+      # Use $kak_session (shell env var) not %val{session} (kak expansion).
+      # $kak_session IS set by kak in %sh{} blocks during -e (client init).
+      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} $kak_session }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 

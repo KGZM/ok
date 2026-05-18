@@ -17,6 +17,13 @@
 
 # ── metrics ───────────────────────────────────────────────────────────────────
 
+(defn- kts-running? []
+  # kak-tree-sitter creates a single socket at $XDG_RUNTIME_DIR/kak-tree-sitter/socket.
+  # Checking this is more reliable than pgrep (process name varies after daemonize).
+  (let [runtime (or (os/getenv "XDG_RUNTIME_DIR") "/tmp/kak-runtime")
+        socket  (string runtime "/kak-tree-sitter/socket")]
+    (not (nil? (os/stat socket)))))
+
 (defn- proc-running? [pattern]
   (= 0 (os/execute ["sh" "-c" (string "pgrep -f '" pattern "' > /dev/null 2>&1")] :p)))
 
@@ -40,11 +47,7 @@
                     (string (os/getenv "HOME") "/.local/share")))
   (def grammar-dir (string xdg-data "/kak-tree-sitter/grammars"))
   (def grammar-count (dir-count grammar-dir))
-  # Use session-specific pattern so we don't false-positive on other sessions.
-  (def kts-pattern (if session
-                     (string "kak-tree-sitter.*" session)
-                     "kak-tree-sitter"))
-  (def kts-ok (proc-running? kts-pattern))
+  (def kts-ok (kts-running?))
   (def lsp-ok (proc-running? "kak-lsp"))
 
   @{:session    (or session (os/getenv "kak_session") "unknown")
