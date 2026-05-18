@@ -69,7 +69,7 @@
       (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
     # Show splash on client init when no files were given.
     (when (not (file-args? argv))
-      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show }"]))
+      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
