@@ -2,7 +2,4 @@
 zig = "0.16.0"
 rust = "stable"
 "cargo:cargo-zigbuild" = "latest"
-# janet is not in the mise registry — install via system package manager:
-#   fedora: sudo dnf install janet
-#   macos:  brew install janet
-# Used to develop and compile src/ (the ok binary).
+"github:janet-lang/janet" = "latest"
