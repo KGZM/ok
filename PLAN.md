@@ -418,6 +418,71 @@ Exclusion list lives in `kak-tree-sitter/Makefile` under `LANGUAGES`.
 
 ---
 
+## Keybindings / Convenience Features
+
+Priority 3 (after aarch64 kts and deployment). All live in `src/init.janet`
+emitting kak script, with heavier logic as `ok --api` subcommands.
+
+### `<space>b` — buffer management
+
+Enter a user-mode with buffer operations:
+
+| Key | Action | Implementation |
+|-----|--------|----------------|
+| `n` | next buffer | `buffer-next` kak builtin |
+| `p` | previous buffer | `buffer-previous` kak builtin |
+| `d` | delete buffer | `delete-buffer` kak builtin |
+| `b` | fuzzy/visual buffer picker | see below |
+
+**`b` — buffer picker (two options, pick one):**
+
+Option A — fzf: pipe `%val{buflist}` through fzf, send selection back via
+`kak -p $kak_session` as a `buffer <name>` command. Same pattern as
+`<space>f f` below.
+
+Option B — virtual buffer list: open `*buflist*` scratch buffer with one
+buffer name per line, buffer-local keybindings (`<ret>` to switch,
+`<esc>` to close). Very kakoune-idiomatic — the buffer IS the UI, and
+buffer-local maps (`map buffer ...`) can wire up as much behaviour as needed
+(delete with `d`, rename, etc.) without any external dependency.
+
+Lean toward Option B for the buffer picker — no fzf dep, richer interaction
+surface via buffer-local maps, and it composes with kak's existing selection
+model (you can select multiple lines and batch-delete buffers, etc.).
+
+---
+
+### `<space>f` — file management
+
+| Key | Action | Implementation |
+|-----|--------|----------------|
+| `f` | fuzzy find files in workspace | fzf — MUST be fzf, no substitutes |
+
+**`f` — fzf file picker:**
+Shell out: `fd` or `find` piped to `fzf --with-nth ...`, return selected
+path, evaluate `edit <path>` in kak via `kak -p`. Runs in a terminal pane
+(`:terminal`) or inline via `fzf --height 40%` if the terminal supports it.
+
+---
+
+### Implementation shape
+
+These are purely kak script emitted by `src/init.janet` — no new `ok --api`
+subcommands needed for the simple cases. The fzf picker (`<space>f f`) needs
+a shell helper but can be a `%sh{}` block inline in the kak mapping rather
+than a formal subcommand.
+
+```kak
+# sketch of <space>b user-mode
+map global user b ': enter-user-mode buffer<ret>' -docstring 'buffers'
+map global buffer n ': buffer-next<ret>'          -docstring 'next'
+map global buffer p ': buffer-previous<ret>'      -docstring 'prev'
+map global buffer d ': delete-buffer<ret>'        -docstring 'delete'
+map global buffer b ': buffer-list<ret>'          -docstring 'pick'
+```
+
+---
+
 ## Open Questions
 
 - **Runtime path for kak**: should kak look for its scripts in

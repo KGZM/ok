@@ -79,10 +79,9 @@ make kak-tree-sitter DIST_TARGET=x86_64-linux
 
 ---
 
-## Pending work
+## Pending work (priority order)
 
-- [ ] GitHub forks (`gh auth login` → fork kak, kak-lsp, kak-tree-sitter)
-- [ ] CI workflows — kts must target glibc, not musl
-- [ ] aarch64 kts build
-- [ ] Keybindings / convenience features
-- [ ] Integration test suite
+1. [ ] **aarch64 kts** — glibc dynamic build for arm (same dlopen constraint applies)
+2. [ ] **Deployment** — GitHub forks, CI workflows (kts must target glibc not musl), mise distribution
+3. [ ] **Keybindings / convenience features** — see PLAN.md; `<space>b` buffers, `<space>f` files
+4. [ ] Integration test suite
