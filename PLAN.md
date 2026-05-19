@@ -18,38 +18,32 @@ overk is NOT a plugin manager and NOT a dotfiles repo. It IS the editor.
 
 ## Operational modes
 
-### Mode 1 — Config-only (daily use)
+### Mode 1 — Source / development (= CI)
 
-The normal workflow once the stack is stable. Like editing a neovim config
-without rebuilding neovim.
+Build everything from source. This is the same workflow CI uses — no
+distinction between local dev and the CI build pipeline.
 
-- `kak`, `kak-lsp`, `kak-tree-sitter` binaries come from **release tarballs**
-  (downloaded, not built from source). No subrepo checkouts required.
-- `ok` runs from **source** (`janet src/main.janet` or the compiled `bin/ok`).
-  Iterate on Janet freely; no recompile needed in dev (janet is interpreted).
-- `mise run bundle` assembles from downloaded artifacts + current ok source.
+- All subrepos checked out (`kak/`, `kak-lsp/`, `kak-tree-sitter/`)
+- `make [DIST_TARGET=aarch64-linux]` builds all components from source
+- `mise run bundle` assembles the runnable bundle
+- Changes to kak scripts → commit to `kak/` fork; pulled in at bundle time
+- Changes to ok config runtime → commit here; no recompile needed (Janet is interpreted)
+- `bin/ok` absent in dev → bundle symlinks repo-root `ok` wrapper → runs `janet src/main.janet` directly
 
-Subrepos (`kak/`, `kak-lsp/`, `kak-tree-sitter/`) need not be present or
-fully cloned in this mode. A future `mise run fetch` task will download
-prebuilt artifacts pinned in `components.toml` instead of building from source.
+### Mode 2 — Release (end-user)
 
-### Mode 2 — Integrated development
+```sh
+mise use -g github:kgzm/ok
+```
 
-Full stack development. All subrepos checked out, all builds from source.
+One command. Installs the pre-built bundle tarball published by this repo's
+CI. Contains all binaries (kak, kak-lsp, kak-tree-sitter, ok), all kak
+scripts, and all grammars. No source checkout, no compiler, no janet runtime
+needed — `ok` in the release tarball is a compiled native binary.
 
-- `make` builds all components from source into `dist/<target>/`
-- `mise run bundle` assembles bundle from `dist/<target>/`
-- Changes to kak scripts → commit to `kak/` fork
-- Changes to kak-lsp config → commit to `kak-lsp/` fork
-- Changes to ok config runtime → commit here
-
-### Mode 3 — Bundle / release (end-user)
-
-Download a pre-built overk release tarball. No source at all.
-Extract, symlink onto PATH, done. No mise, no janet, no compiler.
-
-The tarball is produced by this repo's CI and contains all binaries, all
-kak scripts, grammars, and a compiled `ok` binary.
+Iterating on janet config in release mode: clone the repo, edit `src/*.janet`,
+point your shell at the cloned `ok` wrapper instead of the mise-installed one.
+The wrapper runs `janet src/main.janet` if no compiled `bin/ok` is present.
 
 ---
 
@@ -188,12 +182,11 @@ mise run bundle
 
 ## CI plan (once GitHub forks exist)
 
-Each fork repo gets its own release workflow. overk's CI assembles and
-publishes the final bundle.
-
-### Per-component workflow (fork repos)
+A single workflow in this repo builds everything from source and publishes
+the bundle. Same as running `make && mise run bundle` locally.
 
 ```yaml
+# .github/workflows/release.yml
 on:
   push:
     tags: ['v*']
@@ -205,42 +198,28 @@ jobs:
           - target: x86_64-linux
             os: ubuntu-latest
           - target: aarch64-linux
-            os: ubuntu-latest   # cross-compile, no hardware needed
+            os: ubuntu-latest   # zig cross-compiles; no hardware needed
     steps:
-      - build for target
-      - upload artifact: {name}-{version}-{target}.tar.gz
+      - checkout (with subrepos)
+      - install zig, rust, cargo-zigbuild, janet
+      - make DIST_TARGET=${{ matrix.target }}
+      - build ok binary (jpm or zig cc for cross)
+      - mise run bundle DIST_TARGET=${{ matrix.target }}
+      - upload ok-{version}-{target}.tar.gz
   release:
     needs: build
     steps:
-      - create GitHub release with artifacts
+      - create GitHub release with both target artifacts
 ```
 
-### overk bundle workflow
+### End-user install
 
-```yaml
-on:
-  push:
-    paths: ['components.toml']   # bump a component → rebuild bundle
-jobs:
-  bundle:
-    steps:
-      - read components.toml
-      - download each component's release artifact
-      - mise run bundle
-      - publish overk-{version}-{target}.tar.gz
+```sh
+mise use -g github:kgzm/ok
 ```
 
-### mise consumption
-
-```toml
-[tools]
-"gh:kgzm/kak"              = "1.2.3"
-"gh:kgzm/kak-lsp"          = "0.5.0"
-"gh:kgzm/kak-tree-sitter"  = "3.2.1"
-```
-
-Asset names follow the pattern `{name}-{version}-{arch}-{os}.tar.gz` to
-match mise's `ubi` asset-matching heuristic.
+Asset names: `ok-{version}-x86_64-linux.tar.gz`, `ok-{version}-aarch64-linux.tar.gz`.
+mise's `ubi` heuristic matches on `x86_64`/`aarch64` + `linux` tokens.
 
 ---
 
@@ -272,12 +251,9 @@ and changes take effect immediately without recompilation.
 ## Sequencing (what's left)
 
 1. **aarch64 builds** — `make aarch64`, test with qemu binfmt_misc
-2. **GitHub forks** — create forks, wire CI in each subrepo
-3. **`mise run fetch` task** — download pinned component artifacts instead
-   of requiring full subrepo source checkouts (enables config-only mode
-   without building from source)
-4. **overk bundle CI** — assemble and publish on components.toml bump
-5. **Keybindings** — `<space>b` buffers, `<space>f` files (see below)
+2. **GitHub forks** — create kgzm/ok (this repo) + subrepo forks for upstream tracking
+3. **CI workflow** — single workflow here builds from source and publishes `ok` release
+4. **Keybindings** — `<space>b` buffers, `<space>f` files (see below)
 
 ---
 
