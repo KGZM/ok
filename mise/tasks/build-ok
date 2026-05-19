@@ -2,25 +2,44 @@
 # mise description="Compile ok to a native binary via jpm (release mode)"
 #
 # Janet's compilation model: janet → C → native binary.
-# Requires: janet (for jpm), a C compiler (we use zig cc).
+# Requires: janet + jpm, a C compiler (we use zig cc).
+#
+# jpm is NOT bundled with the janet GitHub release binary.
+# Bootstrap jpm first (one-time, idempotent):
+#   git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src
+#   DESTDIR=$(mise where github:janet-lang/janet) janet /tmp/jpm-src/bootstrap.janet
 #
 # Output: bin/ok — copy this into the bundle via mise run bundle.
 #
 # CI notes:
 #   - Install janet via: mise install
+#   - Bootstrap jpm (see above) — or install via system package manager
 #   - C compiler: zig cc (already in toolchain via mise)
-#   - jpm is bundled with janet; no separate install needed
 #   - Cross-compilation: jpm does not support cross-compile directly.
-#     For aarch64: run on an aarch64 runner (GitHub Actions macos-14 for arm,
-#     or a native linux/aarch64 runner).
+#     For aarch64: run on an aarch64 runner.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 
+JANET="$(mise where github:janet-lang/janet)/bin/janet"
+JANET_LIB="$(mise where github:janet-lang/janet)/usr/local/lib/janet"
+JPM_CLI="$JANET_LIB/jpm/cli.janet"
+
+if [ ! -f "$JPM_CLI" ]; then
+    echo "error: jpm not found at $JPM_CLI"
+    echo "  Bootstrap jpm first:"
+    echo "    git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src"
+    echo "    DESTDIR=\$(mise where github:janet-lang/janet) \$JANET /tmp/jpm-src/bootstrap.janet"
+    exit 1
+fi
+
 export CC="zig cc"
 export CXX="zig c++"
+export JANET_PATH="$JANET_LIB"
+export JANET_HEADERPATH="$(mise where github:janet-lang/janet)/include"
 
 cd "$REPO"
-jpm build
+"$JANET" "$JPM_CLI" build
+cp build/ok bin/ok
 
 echo "==> ok compiled to $REPO/bin/ok"
 echo "    run 'mise run bundle' to include it in the bundle"

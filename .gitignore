@@ -9,5 +9,8 @@
 # compiled ok binary — produced by mise run build-ok (jpm output)
 /bin/
 
+# jpm build artifacts
+/build/
+
 # jj internal state (manages its own git-backend tracking)
 /.jj/

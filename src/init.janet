@@ -14,8 +14,6 @@
     "echo -debug 'overk: init sourced'\n"
     "\n"
 
-    "colorscheme default\n"
-    "\n"
     "set-option global modelinefmt '{keyword}ok{Default} ── %val{bufname} {{context_info}} {{mode_info}} - %val{client}@{type}%val{session}{Default}'\n"
     "\n"
     (clipboard/register))))
