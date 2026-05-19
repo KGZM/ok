@@ -66,14 +66,10 @@
     (when (and session (nil? explicit))
       (array/concat cmd ["-C" session]))
     (when new?
-      # $kak_session is not set in %sh{} during -E. kts init lives in kakrc.local
-      # (written by mise run bundle) where $kak_session IS available.
-      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
-    # Show splash on client init when no files were given.
-    (when (not (file-args? argv))
-      # Use $kak_session (shell env var) not %val{session} (kak expansion).
-      # $kak_session IS set by kak in %sh{} blocks during -e (client init).
-      (array/concat cmd ["-e" "evaluate-commands %sh{ [ \"$kak_opt_ok_splash_shown\" = true ] && exit 0; printf 'set-option global ok_splash_shown true\\n'; ok --api splash show \"$kak_window_width\" \"$kak_session\" }"]))
+      # Pass --splash to ok --api init when no files given — init.janet emits
+      # a hook -once global ClientCreate that shows splash for the first client only.
+      (let [splash-arg (if (file-args? argv) "" " --splash")]
+        (array/concat cmd ["-E" (string "evaluate-commands %sh{ ok --api init" splash-arg " }")])))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
