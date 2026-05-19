@@ -2,6 +2,7 @@
 /kak/
 /kak-lsp/
 /kak-tree-sitter/
+/grammars/
 
 # all build outputs — binaries, grammars, intermediate artifacts
 /dist/
