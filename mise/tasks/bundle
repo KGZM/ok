@@ -46,12 +46,10 @@ cat > "$BUNDLE/bin/kak" << 'WRAPPER'
 #!/bin/sh
 SELF="$(readlink -f "$0")"
 BUNDLE="$(dirname "$(dirname "$SELF")")"
-mkdir -p "${XDG_RUNTIME_DIR:-/tmp/kak-runtime}"
 exec env \
     KAKOUNE_RUNTIME="$BUNDLE/share/kak" \
     KAK_TREE_SITTER_RUNTIME="$BUNDLE/share/kak-tree-sitter" \
     XDG_DATA_HOME="$BUNDLE/share" \
-    XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/kak-runtime}" \
     PATH="$BUNDLE/bin:$PATH" \
     "$BUNDLE/bin/kak-real" "$@"
 WRAPPER

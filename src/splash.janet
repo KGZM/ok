@@ -20,7 +20,7 @@
 (defn- kts-running? []
   # kak-tree-sitter creates a single socket at $XDG_RUNTIME_DIR/kak-tree-sitter/socket.
   # Checking this is more reliable than pgrep (process name varies after daemonize).
-  (let [runtime (or (os/getenv "XDG_RUNTIME_DIR") "/tmp/kak-runtime")
+  (let [runtime (or (os/getenv "XDG_RUNTIME_DIR") "/tmp")
         socket  (string runtime "/kak-tree-sitter/socket")]
     (not (nil? (os/stat socket)))))
 
