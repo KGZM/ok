@@ -28,9 +28,14 @@ upstream_commit = "b090ff6"  # master as of 2026-05-17
 # GitHub fork (pending): kgzm/kak-tree-sitter
 # Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
 upstream_version = "3.2.1"
-upstream_commit = "e4e1d27"  # master as of 2026-05-17
+upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile
 # release = "v0.0.0"
 #
 # NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
 # See: memory/feedback-kts-dlopen.md
 # Build flags: --features kak-tree-sitter/direct-unix-socket
+#
+# aarch64 grammar build quirk: target ktsctl (linux-gnu) can't run on x86_64
+# host without aarch64 glibc libs. Our Makefile builds host (x86_64) ktsctl
+# and puts it first on PATH — it calls our zig cc wrapper which cross-targets.
+# CI needs: rustup target add aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu
