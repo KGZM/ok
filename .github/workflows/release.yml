@@ -1,0 +1,101 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: bundle (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-linux
+            janet_zig_target: x86_64-linux-musl
+          - target: aarch64-linux
+            janet_zig_target: aarch64-linux-musl
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - uses: jdx/mise-action@v2
+
+      - name: install janet
+        run: mise install github-janet-lang-janet
+
+      - name: fetch component tarballs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise run fetch DIST_TARGET=${{ matrix.target }}
+
+      - name: build ok binary
+        run: |
+          JANET_BASE=$(mise where github-janet-lang-janet)
+          TARGET=${{ matrix.janet_zig_target }}
+
+          # Cross-compile libjanet.a for the target arch from the amalgamation source.
+          zig cc -target ${TARGET} -O2 -c \
+            -I "${JANET_BASE}/include" \
+            "${JANET_BASE}/src/janet.c" \
+            -o /tmp/janet-${TARGET}.o
+          zig ar rcs /tmp/libjanet-${TARGET}.a /tmp/janet-${TARGET}.o
+
+          # Generate ok C source via jpm on the host.
+          JANET_PATH="${JANET_BASE}/usr/local/lib/janet" \
+          JANET_HEADERPATH="${JANET_BASE}/include" \
+            "${JANET_BASE}/bin/janet" \
+            "${JANET_BASE}/usr/local/lib/janet/jpm/cli.janet" \
+            build
+
+          # Link for target arch.
+          zig cc -target ${TARGET} -O2 \
+            -I "${JANET_BASE}/include" \
+            build/ok.c \
+            /tmp/libjanet-${TARGET}.a \
+            -lm -ldl -lpthread \
+            -o bin/ok
+
+      - name: assemble bundle
+        run: DIST_TARGET=${{ matrix.target }} mise run bundle
+
+      - name: package
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          BUNDLE=dist/bundle-${{ matrix.target }}
+          # host build uses dist/bundle (no arch suffix)
+          [ -d dist/bundle ] && BUNDLE=dist/bundle
+          ARTIFACT=ok-${VERSION}-${{ matrix.target }}
+          tar -czf ${ARTIFACT}.tar.gz -C ${BUNDLE} .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: "ok-*.tar.gz"
+
+  release:
+    name: release
+    needs: bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+          path: artifacts/
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.tar.gz
+          generate_release_notes: true

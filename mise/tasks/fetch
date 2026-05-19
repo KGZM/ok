@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# mise description="Download pinned component release tarballs from GitHub forks"
+#
+# Reads components.toml for release tags, downloads tarballs from each
+# fork's GitHub releases, and extracts into dist/<target>/ — ready for
+# mise run bundle without building from source.
+#
+# Usage:
+#   mise run fetch                          — fetch for host arch
+#   mise run fetch DIST_TARGET=aarch64-linux
+#
+# Requires: gh (GitHub CLI), authenticated with gh auth login
+set -euo pipefail
+
+REPO="$(cd "$(dirname "$0")/../.." && pwd)"
+HOST_ARCH="$(uname -m)"
+DIST_TARGET="${DIST_TARGET:-${HOST_ARCH}-linux}"
+DIST="$REPO/dist/$DIST_TARGET"
+
+# --- parse components.toml -----------------------------------------------
+# Simple sed/grep extraction — no TOML parser needed for this structure.
+get_field() {
+    local section="$1" field="$2"
+    sed -n "/^\[${section}\]/,/^\[/p" "$REPO/components.toml" \
+        | grep "^${field}" | head -1 | sed 's/.*= *"\([^"]*\)".*/\1/'
+}
+
+KAK_RELEASE="$(get_field kak release 2>/dev/null || true)"
+KAK_LSP_RELEASE="$(get_field kak-lsp release 2>/dev/null || true)"
+KTS_RELEASE="$(get_field kak-tree-sitter release 2>/dev/null || true)"
+
+if [ -z "$KAK_RELEASE" ] || [ -z "$KAK_LSP_RELEASE" ] || [ -z "$KTS_RELEASE" ]; then
+    echo "error: components.toml has no release tags yet."
+    echo "       Set [kak].release, [kak-lsp].release, [kak-tree-sitter].release"
+    echo "       once each fork's CI has produced a release."
+    exit 1
+fi
+
+# --- fetch and extract ----------------------------------------------------
+fetch_component() {
+    local repo="$1" tag="$2" artifact="$3"
+    local dest="$DIST"
+    echo "==> fetching ${artifact} from ${repo}@${tag}"
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    gh release download "$tag" \
+        --repo "$repo" \
+        --pattern "$artifact" \
+        --dir "$tmpdir"
+    mkdir -p "$dest"
+    tar -xzf "$tmpdir/$artifact" -C "$dest"
+    rm -rf "$tmpdir"
+}
+
+mkdir -p "$DIST"
+
+fetch_component "kgzm/kak" \
+    "v${KAK_RELEASE}" \
+    "kak-${KAK_RELEASE}-${DIST_TARGET}.tar.gz"
+
+fetch_component "kgzm/kak-lsp" \
+    "v${KAK_LSP_RELEASE}" \
+    "kak-lsp-${KAK_LSP_RELEASE}-${DIST_TARGET}.tar.gz"
+
+fetch_component "kgzm/kak-tree-sitter" \
+    "v${KTS_RELEASE}" \
+    "kak-tree-sitter-${KTS_RELEASE}-${DIST_TARGET}.tar.gz"
+
+echo ""
+echo "==> fetched into $DIST"
+echo "    run 'mise run bundle' to assemble"
