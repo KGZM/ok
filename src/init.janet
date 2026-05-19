@@ -17,4 +17,9 @@
     "set-option global modelinefmt '{keyword}ok{Default} ── %val{bufname} {{context_info}} {{mode_info}} - %val{client}@{type}%val{session}{Default}'\n"
     "\n"
 
+    # LSP user mode — <space>l to enter, then LSP commands.
+    # Explicit per-buffer activation: :lsp-enable-window
+    # Auto-activation: add WinSetOption filetype=(...) hook in your kakrc.
+    "map global user l ':enter-user-mode lsp<ret>' -docstring 'LSP'\n"
+    "\n"
     (clipboard/register))))
