@@ -48,7 +48,7 @@
   (def grammar-dir (string xdg-data "/kak-tree-sitter/grammars"))
   (def grammar-count (dir-count grammar-dir))
   (def kts-ok (kts-running?))
-  (def lsp-ok (proc-running? "kak-lsp"))
+  (def lsp-ok (= 0 (os/execute ["sh" "-c" "command -v kak-lsp > /dev/null 2>&1"] :p)))
 
   @{:session    (or session (os/getenv "kak_session") "unknown")
     :windowing  (windowing)
@@ -57,7 +57,7 @@
                   (string "✓  running   (" grammar-count " grammars)")
                   "✗  not running")
     :lsp-ok     lsp-ok
-    :lsp-detail (if lsp-ok "✓  loaded" "✗  not loaded")
+    :lsp-detail (if lsp-ok "✓  available" "✗  not found")
     :arch       (or (os/getenv "KAK_ARCH") (do
                   (def tmp "/tmp/ok-arch")
                   (os/execute ["sh" "-c" (string "uname -m > " tmp)] :p)
