@@ -14,3 +14,6 @@
 
 # jj internal state (manages its own git-backend tracking)
 /.jj/
+
+# private working notes — not for publication
+/tmp/
