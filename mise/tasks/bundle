@@ -70,14 +70,25 @@ else
 fi
 
 # ── vanilla kak runtime ───────────────────────────────────────────────────────
-# Ship the kak runtime exactly as upstream produces it. No kakrc.local.
-# ok injects all overk wiring via: kak -E "evaluate-commands %sh{ ok init }"
-# Calling bare kak gives vanilla kak — intentional.
 cp "$LOCAL/share/kak/kakrc"     "$BUNDLE/share/kak/kakrc"
 cp -r "$LOCAL/share/kak/rc"     "$BUNDLE/share/kak/rc"
 cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
 cp -r "$LOCAL/share/kak/doc"    "$BUNDLE/share/kak/doc"
 ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
+
+# kakrc.local — kts init. $kak_session is set in %sh{} blocks sourced from
+# the runtime kakrc (unlike -E where it is not available).
+cat > "$BUNDLE/share/kak/kakrc.local" << 'KAKRC_LOCAL'
+evaluate-commands %sh{
+  pid=$(cat "${XDG_RUNTIME_DIR:-/tmp/kak-runtime}/kak-tree-sitter/pid" 2>/dev/null)
+  [ -n "$pid" ] && kill "$pid" 2>/dev/null && sleep 0.3
+  kak-tree-sitter --kakoune \
+    --init "$kak_session" \
+    --server --daemonize \
+    --with-highlighting \
+    --with-text-objects
+}
+KAKRC_LOCAL
 
 # kak-lsp rc files vendored into autoload — upstream scripts, not our code.
 mkdir -p "$BUNDLE/share/kak/autoload/lsp"

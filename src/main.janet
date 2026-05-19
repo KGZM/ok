@@ -66,9 +66,9 @@
     (when (and session (nil? explicit))
       (array/concat cmd ["-C" session]))
     (when new?
-      # %val{session} is expanded by kak before the shell runs — unlike
-      # $kak_session which is not set in %sh{} during -E server initialisation.
-      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init %val{session} }"]))
+      # $kak_session is not set in %sh{} during -E. kts init lives in kakrc.local
+      # (written by mise run bundle) where $kak_session IS available.
+      (array/concat cmd ["-E" "evaluate-commands %sh{ ok --api init }"]))
     # Show splash on client init when no files were given.
     (when (not (file-args? argv))
       # Use $kak_session (shell env var) not %val{session} (kak expansion).
