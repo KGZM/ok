@@ -17,11 +17,4 @@
     "set-option global modelinefmt '{keyword}ok{Default} ── %val{bufname} {{context_info}} {{mode_info}} - %val{client}@{type}%val{session}{Default}'\n"
     "\n"
 
-    # Enable LSP for all filetypes that have server configs in servers.kak.
-    # lsp-enable-window is a no-op if no server is configured for the filetype.
-    # kak-lsp itself is started in kakrc.local where $kak_session is available.
-    "hook global WinSetOption filetype=(?:c|cpp|objc|clojure|cmake|crystal|css|less|scss|d|dart|elixir|eex|elm|erlang|fsharp|go|graphql|haskell|html|java|javascript|typescript|json|julia|latex|lean|lua|markdown|mojo|nim|nix|ocaml|odin|php|protobuf|purescript|python|r|racket|reason|ruby|rust|scala|sh|svelte|swift|terraform|toml|typst|vue|yaml|zig) %{\n"
-    "  lsp-enable-window\n"
-    "}\n"
-    "\n"
     (clipboard/register))))
