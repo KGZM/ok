@@ -89,7 +89,6 @@ evaluate-commands %sh{
     --with-text-objects
 }
 
-evaluate-commands %sh{ kak-lsp }
 KAKRC_LOCAL
 
 # kak-lsp rc files vendored into autoload — upstream scripts, not our code.
