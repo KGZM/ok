@@ -76,7 +76,7 @@ cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
 cp -r "$LOCAL/share/kak/doc"    "$BUNDLE/share/kak/doc"
 ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
 
-# kakrc.local — kts init. $kak_session is set in %sh{} blocks sourced from
+# kakrc.local — daemon init. $kak_session is set in %sh{} blocks sourced from
 # the runtime kakrc (unlike -E where it is not available).
 cat > "$BUNDLE/share/kak/kakrc.local" << 'KAKRC_LOCAL'
 evaluate-commands %sh{
@@ -88,6 +88,8 @@ evaluate-commands %sh{
     --with-highlighting \
     --with-text-objects
 }
+
+evaluate-commands %sh{ kak-lsp --session "$kak_session" }
 KAKRC_LOCAL
 
 # kak-lsp rc files vendored into autoload — upstream scripts, not our code.
