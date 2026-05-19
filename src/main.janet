@@ -73,7 +73,7 @@
     (when (not (file-args? argv))
       # Use $kak_session (shell env var) not %val{session} (kak expansion).
       # $kak_session IS set by kak in %sh{} blocks during -e (client init).
-      (array/concat cmd ["-e" "evaluate-commands %sh{ ok --api splash show %val{window_width} $kak_session }"]))
+      (array/concat cmd ["-e" "evaluate-commands %sh{ [ \"$kak_opt_ok_splash_shown\" = true ] && exit 0; printf 'set-option global ok_splash_shown true\\n'; ok --api splash show \"$kak_window_width\" \"$kak_session\" }"]))
     (array/concat cmd argv)
     (os/exit (os/execute cmd :p))))
 
