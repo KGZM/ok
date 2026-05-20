@@ -79,9 +79,22 @@ make kak-tree-sitter DIST_TARGET=x86_64-linux
 
 ---
 
-## Pending work (priority order)
+## Pending work
 
-1. [ ] **aarch64 kts** — glibc dynamic build for arm (same dlopen constraint applies)
-2. [ ] **Deployment** — GitHub forks, CI workflows (kts must target glibc not musl), mise distribution
-3. [ ] **Keybindings / convenience features** — see PLAN.md; `<space>b` buffers, `<space>f` files
-4. [ ] Integration test suite
+### 🙋 Me (manual / decision tasks)
+- [ ] Wire `kgzm/grammars` into ok — add `[grammars]` to `components.toml`, update
+      `mise run fetch` and `mise run bundle` to download + extract grammar tarballs
+- [ ] Push `grammars/` repo to GitHub, tag v0.1.0 to trigger first CI release
+- [ ] Tag subrepos (kak, kak-lsp, kak-tree-sitter) to trigger their CI releases
+- [ ] Fill in `components.toml` release fields once CI produces artifacts
+- [ ] Repo curation before public — see `tmp/GITHUB_SETUP.md` checklist
+- [ ] Audit `grammars/*/scanner.c` for malice (grep for socket/exec/fork/popen/fopen)
+
+### 🤖 Claude tasks (next session)
+- [ ] **macOS support** — Makefile target detection, kts wrapper for darwin, CI runners
+- [ ] **Systemd filetype fix** — match `.service`/`.timer` etc. by extension not path
+- [ ] **Keybindings** — `<space>b` buffer menu, `<space>f` fzf file picker (see PLAN.md)
+- [ ] **`scripts/update-grammar.sh`** — pull one grammar from upstream with diff review
+- [ ] **`scripts/verify-parser.sh`** — regen parser.c from grammar.js and diff for audit
+- [ ] Strip grammar compilation out of kts fork Makefile (now lives in grammars repo)
+- [ ] Integration test suite
