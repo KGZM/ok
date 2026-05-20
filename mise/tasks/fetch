@@ -28,18 +28,18 @@ get_field() {
 KAK_RELEASE="$(get_field kak release 2>/dev/null || true)"
 KAK_LSP_RELEASE="$(get_field kak-lsp release 2>/dev/null || true)"
 KTS_RELEASE="$(get_field kak-tree-sitter release 2>/dev/null || true)"
+GRAMMARS_RELEASE="$(get_field grammars release 2>/dev/null || true)"
 
-if [ -z "$KAK_RELEASE" ] || [ -z "$KAK_LSP_RELEASE" ] || [ -z "$KTS_RELEASE" ]; then
+if [ -z "$KAK_RELEASE" ] || [ -z "$KAK_LSP_RELEASE" ] || [ -z "$KTS_RELEASE" ] || [ -z "$GRAMMARS_RELEASE" ]; then
     echo "error: components.toml has no release tags yet."
-    echo "       Set [kak].release, [kak-lsp].release, [kak-tree-sitter].release"
-    echo "       once each fork's CI has produced a release."
+    echo "       Set [kak].release, [kak-lsp].release, [kak-tree-sitter].release,"
+    echo "       and [grammars].release once each fork's CI has produced a release."
     exit 1
 fi
 
 # --- fetch and extract ----------------------------------------------------
 fetch_component() {
-    local repo="$1" tag="$2" artifact="$3"
-    local dest="$DIST"
+    local repo="$1" tag="$2" artifact="$3" dest="${4:-$DIST}"
     echo "==> fetching ${artifact} from ${repo}@${tag}"
     local tmpdir
     tmpdir="$(mktemp -d)"
@@ -65,6 +65,11 @@ fetch_component "kgzm/kak-lsp" \
 fetch_component "kgzm/kak-tree-sitter" \
     "v${KTS_RELEASE}" \
     "kak-tree-sitter-${KTS_RELEASE}-${DIST_TARGET}.tar.gz"
+
+fetch_component "kgzm/grammars" \
+    "v${GRAMMARS_RELEASE}" \
+    "grammars-${GRAMMARS_RELEASE}-${DIST_TARGET}.tar.gz" \
+    "$DIST/share/kak-tree-sitter/grammars"
 
 echo ""
 echo "==> fetched into $DIST"

@@ -98,8 +98,15 @@ cp "$LOCAL/share/kak-lsp/rc/servers.kak" "$BUNDLE/share/kak/autoload/lsp/"
 cp -r "$LOCAL/share/kak-tree-sitter/queries"      "$BUNDLE/share/kak-tree-sitter/queries"
 cp -r "$LOCAL/share/kak-tree-sitter/completions"  "$BUNDLE/share/kak-tree-sitter/completions"
 
-if [ -d "$LOCAL/share/kak-tree-sitter/grammars" ]; then
-    cp -r "$LOCAL/share/kak-tree-sitter/grammars" "$BUNDLE/share/kak-tree-sitter/"
+# Grammars come from kgzm/grammars — flat .so files, one per language.
+# kts loads them via Source::Bundled: $XDG_DATA_HOME/kak-tree-sitter/grammars/{lang}.so
+# XDG_DATA_HOME is set to $BUNDLE/share by the kak wrapper, so they land here.
+GRAMMARS_SRC="$REPO/grammars/dist/$DIST_TARGET"
+if [ -d "$GRAMMARS_SRC" ]; then
+    mkdir -p "$BUNDLE/share/kak-tree-sitter/grammars"
+    cp "$GRAMMARS_SRC"/*.so "$BUNDLE/share/kak-tree-sitter/grammars/" 2>/dev/null || true
+else
+    echo "warn: grammars/dist/$DIST_TARGET not found — run 'make' in grammars/ first"
 fi
 
 if [ -d "$LOCAL/share/kak-tree-sitter/kts-queries" ]; then
@@ -109,7 +116,7 @@ fi
 # ── summary ───────────────────────────────────────────────────────────────────
 GRAMMAR_COUNT=0
 if [ -d "$BUNDLE/share/kak-tree-sitter/grammars" ]; then
-    GRAMMAR_COUNT=$(ls "$BUNDLE/share/kak-tree-sitter/grammars" | wc -l)
+    GRAMMAR_COUNT=$(find "$BUNDLE/share/kak-tree-sitter/grammars" -name "*.so" | wc -l)
 fi
 
 echo ""

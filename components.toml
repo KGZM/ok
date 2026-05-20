@@ -39,3 +39,8 @@ upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile
 # host without aarch64 glibc libs. Our Makefile builds host (x86_64) ktsctl
 # and puts it first on PATH — it calls our zig cc wrapper which cross-targets.
 # CI needs: rustup target add aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu
+
+[grammars]
+# GitHub repo: kgzm/grammars
+# Tree-sitter grammar .so files, cross-compiled per target arch.
+# release = "v0.0.0"
