@@ -55,12 +55,13 @@ jobs:
           JANET_MODPATH="${JANET_BASE}/lib/janet"
           TARGET=${{ matrix.janet_zig_target }}
 
-          # Generate ok.c via jpm on the host (link step will fail — that's expected;
-          # we only need the C source and link against our cross-compiled libjanet.a).
+          # Generate ok.c via jpm on the host. The link step will fail (jpm looks for
+          # /usr/local/lib/libjanet.a) — that's expected. We only need build/ok.c.
           JANET_PATH="${JANET_MODPATH}" \
           JANET_HEADERPATH="${JANET_BASE}/include" \
           CC="zig cc" \
             "${JANET_BASE}/bin/janet" "${JANET_MODPATH}/jpm/cli.janet" build || true
+          test -f build/ok.c || { echo "error: jpm did not generate build/ok.c"; exit 1; }
 
           # Cross-compile libjanet.a for the target arch from the amalgamation source.
           zig cc -target ${TARGET} -O2 -c \
