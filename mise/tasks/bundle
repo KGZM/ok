@@ -46,10 +46,19 @@ cat > "$BUNDLE/bin/kak" << 'WRAPPER'
 #!/bin/sh
 SELF="$(readlink -f "$0")"
 BUNDLE="$(dirname "$(dirname "$SELF")")"
+# kak-tree-sitter requires XDG_RUNTIME_DIR to create its socket and pid file.
+# Fall back to a user-specific tmpdir if the session manager hasn't set it.
+if [ -z "$XDG_RUNTIME_DIR" ]; then
+    _tmpbase=$(dirname "$(mktemp -u)")
+    XDG_RUNTIME_DIR="${_tmpbase}/kak-runtime-$(id -u)"
+    unset _tmpbase
+fi
+mkdir -p "$XDG_RUNTIME_DIR"
 exec env \
     KAKOUNE_RUNTIME="$BUNDLE/share/kak" \
     KAK_TREE_SITTER_RUNTIME="$BUNDLE/share/kak-tree-sitter" \
     XDG_DATA_HOME="$BUNDLE/share" \
+    XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
     PATH="$BUNDLE/bin:$PATH" \
     "$BUNDLE/bin/kak-real" "$@"
 WRAPPER
