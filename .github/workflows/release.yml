@@ -47,7 +47,7 @@ jobs:
       - name: fetch component tarballs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise run fetch DIST_TARGET=${{ matrix.target }}
+        run: DIST_TARGET=${{ matrix.target }} mise run fetch
 
       - name: build ok binary
         run: |
