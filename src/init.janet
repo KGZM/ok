@@ -31,4 +31,43 @@
         "}\n"
         "\n")
       "")
-    (clipboard/register))))
+    (clipboard/register)
+
+    # Tree-sitter face mappings: override kts defaults (ts_X = default) with kak semantic faces.
+    # kts emits these faces at init time; we run after and remap top-level groups.
+    "\n"
+    "# ts_* → kak semantic faces\n"
+    "set-face global ts_attribute   attribute\n"
+    "set-face global ts_comment     comment\n"
+    "set-face global ts_constant    value\n"
+    "set-face global ts_constructor function\n"
+    "set-face global ts_embedded    meta\n"
+    "set-face global ts_error       Error\n"
+    "set-face global ts_function    function\n"
+    "set-face global ts_include     meta\n"
+    "set-face global ts_keyword     keyword\n"
+    "set-face global ts_label       meta\n"
+    "set-face global ts_namespace   module\n"
+    "set-face global ts_operator    operator\n"
+    "set-face global ts_special     builtin\n"
+    "set-face global ts_string      string\n"
+    "set-face global ts_tag         keyword\n"
+    "set-face global ts_type        type\n"
+    "set-face global ts_variable    variable\n"
+    "set-face global ts_markup_heading   title\n"
+    "set-face global ts_markup_bold      default+b\n"
+    "set-face global ts_markup_italic    default+i\n"
+    "set-face global ts_markup_raw       mono\n"
+    "set-face global ts_markup_link_url  link\n"
+    "\n"
+    # Source user ok config last so it overrides all ok defaults above.
+    # ~/.config/ok/kakrc is the ok-specific config; ~/.config/kak/kakrc is NOT loaded
+    # (bundle task strips that sourcing from the system kakrc).
+    "evaluate-commands %sh{\n"
+    "  cfg=\"${XDG_CONFIG_HOME:-$HOME/.config}/ok/kakrc\"\n"
+    "  if [ -f \"$cfg\" ]; then\n"
+    "    printf \"source '%s'\\n\" \"$cfg\"\n"
+    "  else\n"
+    "    echo \"echo -debug 'ok: no ~/.config/ok/kakrc'\"\n"
+    "  fi\n"
+    "}\n")))

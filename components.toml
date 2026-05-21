@@ -12,7 +12,7 @@
 # GitHub fork: kgzm/kak
 # Upstream: https://github.com/mawww/kakoune
 upstream_commit = "2f7ac6f"  # master as of 2026-05-17
-release = "2026.05.21-4670fac7"
+release = "2026.05.21-c7efca4c"
 
 [kak-lsp]
 # GitHub fork: kgzm/kak-lsp

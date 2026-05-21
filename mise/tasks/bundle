@@ -78,6 +78,8 @@ fi
 
 # ── vanilla kak runtime ───────────────────────────────────────────────────────
 cp "$LOCAL/share/kak/kakrc"     "$BUNDLE/share/kak/kakrc"
+# Strip user kakrc sourcing — ok sources ~/.config/ok/kakrc via ok --api init instead.
+sed -i '/if \[ -f "\${kak_config}\/kakrc" \]/,/^    fi$/d' "$BUNDLE/share/kak/kakrc"
 cp -r "$LOCAL/share/kak/rc"     "$BUNDLE/share/kak/rc"
 cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
 cp -r "$LOCAL/share/kak/doc"    "$BUNDLE/share/kak/doc"
@@ -87,13 +89,81 @@ ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
 # the runtime kakrc (unlike -E where it is not available).
 cat > "$BUNDLE/share/kak/kakrc.local" << 'KAKRC_LOCAL'
 evaluate-commands %sh{
-  pid=$(cat "${XDG_RUNTIME_DIR:-/tmp/kak-runtime}/kak-tree-sitter/pid" 2>/dev/null)
-  [ -n "$pid" ] && kill "$pid" 2>/dev/null && sleep 0.3
+  kts_dir="${XDG_RUNTIME_DIR}/kak-tree-sitter"
+  pid_file="${kts_dir}/pid"
+  socket_file="${kts_dir}/socket"
+  daemon_stderr="${kts_dir}/stderr.txt"
+  grammar_dir="${XDG_DATA_HOME}/kak-tree-sitter/grammars"
+
+  # ── pre-startup diagnostics ──────────────────────────────────────────────
+  echo "echo -debug 'kts: XDG_DATA_HOME=${XDG_DATA_HOME}'"
+  echo "echo -debug 'kts: XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}'"
+  echo "echo -debug 'kts: KAK_TREE_SITTER_RUNTIME=${KAK_TREE_SITTER_RUNTIME}'"
+  grammar_count=$(ls "${grammar_dir}"/*.so 2>/dev/null | wc -l | tr -d ' ')
+  echo "echo -debug 'kts: grammars: ${grammar_count} .so files'"
+
+  # ── kill stale daemon ────────────────────────────────────────────────────
+  if [ -f "${pid_file}" ]; then
+    old_pid=$(cat "${pid_file}" 2>/dev/null)
+    if [ -n "${old_pid}" ] && kill -0 "${old_pid}" 2>/dev/null; then
+      kill "${old_pid}" 2>/dev/null
+      echo "echo -debug 'kts: killed stale daemon (pid ${old_pid})'"
+      sleep 0.3
+    else
+      echo "echo -debug 'kts: removed stale pid file (pid ${old_pid:-none})'"
+    fi
+  fi
+
+  # ── start daemon ─────────────────────────────────────────────────────────
+  # stdout → kak eval (face init script)
+  # stderr → temp file so we can report init-time errors without swallowing them
+  init_err="${XDG_RUNTIME_DIR}/kts-init-err.$$"
   kak-tree-sitter --kakoune \
     --init "$kak_session" \
     --server --daemonize \
     --with-highlighting \
-    --with-text-objects
+    --with-text-objects \
+    2>"${init_err}"
+  init_exit=$?
+  echo "echo -debug 'kts: --init exited ${init_exit}'"
+  if [ -s "${init_err}" ]; then
+    while IFS= read -r line; do
+      safe=$(printf '%s' "${line}" | tr "'" '"')
+      echo "echo -debug 'kts init: ${safe}'"
+    done < "${init_err}"
+  fi
+  rm -f "${init_err}"
+
+  # ── verify daemon started ─────────────────────────────────────────────────
+  # --daemonize forks; poll briefly for the pid file the child writes.
+  i=0
+  while [ $i -lt 10 ]; do
+    [ -f "${pid_file}" ] && kill -0 "$(cat "${pid_file}" 2>/dev/null)" 2>/dev/null && break
+    sleep 0.1
+    i=$((i + 1))
+  done
+
+  new_pid=$(cat "${pid_file}" 2>/dev/null)
+  if [ -n "${new_pid}" ] && kill -0 "${new_pid}" 2>/dev/null; then
+    echo "echo -debug 'kts: daemon running (pid ${new_pid})'"
+    if [ -S "${socket_file}" ]; then
+      echo "echo -debug 'kts: socket ok'"
+    else
+      echo "echo -debug 'kts: WARNING -- socket not found at ${socket_file}'"
+    fi
+  else
+    echo "echo -debug 'kts: ERROR -- daemon not running after init (exit ${init_exit})'"
+  fi
+
+  # ── daemon early stderr ───────────────────────────────────────────────────
+  # kts writes its runtime logs to stderr.txt; report anything present at startup.
+  if [ -s "${daemon_stderr}" ]; then
+    echo "echo -debug 'kts: daemon stderr:'"
+    while IFS= read -r line; do
+      safe=$(printf '%s' "${line}" | tr "'" '"')
+      echo "echo -debug '  ${safe}'"
+    done < "${daemon_stderr}"
+  fi
 }
 
 KAKRC_LOCAL
