@@ -101,12 +101,19 @@ cp -r "$LOCAL/share/kak-tree-sitter/completions"  "$BUNDLE/share/kak-tree-sitter
 # Grammars come from kgzm/grammars — flat .so files, one per language.
 # kts loads them via Source::Bundled: $XDG_DATA_HOME/kak-tree-sitter/grammars/{lang}.so
 # XDG_DATA_HOME is set to $BUNDLE/share by the kak wrapper, so they land here.
-GRAMMARS_SRC="$REPO/grammars/dist/$DIST_TARGET"
-if [ -d "$GRAMMARS_SRC" ]; then
-    mkdir -p "$BUNDLE/share/kak-tree-sitter/grammars"
-    cp "$GRAMMARS_SRC"/*.so "$BUNDLE/share/kak-tree-sitter/grammars/" 2>/dev/null || true
+#
+# Source priority:
+#   Mode 1 (source/dev): grammars/dist/<target>/*.so  — locally compiled
+#   Mode 3 (openface) / CI: dist/<target>/share/kak-tree-sitter/grammars/*.so — fetched
+mkdir -p "$BUNDLE/share/kak-tree-sitter/grammars"
+GRAMMARS_LOCAL="$REPO/grammars/dist/$DIST_TARGET"
+GRAMMARS_FETCHED="$LOCAL/share/kak-tree-sitter/grammars"
+if ls "$GRAMMARS_LOCAL"/*.so >/dev/null 2>&1; then
+    cp "$GRAMMARS_LOCAL"/*.so "$BUNDLE/share/kak-tree-sitter/grammars/"
+elif ls "$GRAMMARS_FETCHED"/*.so >/dev/null 2>&1; then
+    cp "$GRAMMARS_FETCHED"/*.so "$BUNDLE/share/kak-tree-sitter/grammars/"
 else
-    echo "warn: grammars/dist/$DIST_TARGET not found — run 'make' in grammars/ first"
+    echo "warn: no grammars found — run 'make' in grammars/ (Mode 1) or 'mise run fetch' (Mode 3/CI)"
 fi
 
 if [ -d "$LOCAL/share/kak-tree-sitter/kts-queries" ]; then

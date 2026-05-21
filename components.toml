@@ -8,39 +8,30 @@
 #   2. Bump the [component].release field here to promote that release.
 #   3. This repo's CI assembles and publishes the new bundle.
 #
-# GitHub forks are pending gh auth login + repo setup (see STATUS.md).
-# Until forks exist, upstream_commit records what we have locally.
-
 [kak]
-# GitHub fork (pending): kgzm/kak
+# GitHub fork: kgzm/kak
 # Upstream: https://github.com/mawww/kakoune
 upstream_commit = "2f7ac6f"  # master as of 2026-05-17
-# release = "v0.0.0"         # fill when fork CI produces first release
+release = "2026.05.20-48618a8e"
 
 [kak-lsp]
-# GitHub fork (pending): kgzm/kak-lsp
+# GitHub fork: kgzm/kak-lsp
 # Upstream: https://github.com/kakoune-lsp/kakoune-lsp
 upstream_version = "20.0.0-snapshot"
 upstream_commit = "b090ff6"  # master as of 2026-05-17
-# release = "v0.0.0"
+release = "2026.05.20-c0907b0"
 
 [kak-tree-sitter]
-# GitHub fork (pending): kgzm/kak-tree-sitter
+# GitHub fork: kgzm/kak-tree-sitter
 # Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
 upstream_version = "3.2.1"
-upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile
-# release = "v0.0.0"
+upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile + Source::Bundled
+release = "2026.05.20-2be5631"
 #
 # NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
-# See: memory/feedback-kts-dlopen.md
 # Build flags: --features kak-tree-sitter/direct-unix-socket
-#
-# aarch64 grammar build quirk: target ktsctl (linux-gnu) can't run on x86_64
-# host without aarch64 glibc libs. Our Makefile builds host (x86_64) ktsctl
-# and puts it first on PATH — it calls our zig cc wrapper which cross-targets.
-# CI needs: rustup target add aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu
 
 [grammars]
 # GitHub repo: kgzm/grammars
-# Tree-sitter grammar .so files, cross-compiled per target arch.
-# release = "v0.0.0"
+# Tree-sitter grammar .so files (215), cross-compiled per target arch.
+release = "2026.05.20-02851bc"
