@@ -48,7 +48,7 @@ zig cc -O2 -c \
   -o /tmp/libjanet-host.o
 zig ar rcs /tmp/libjanet-host.a /tmp/libjanet-host.o
 
-zig cc -O2 \
+zig cc -O2 -s \
   -I "$JANET_BASE/include" \
   build/ok.c \
   /tmp/libjanet-host.a \

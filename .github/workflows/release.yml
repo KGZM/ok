@@ -70,9 +70,9 @@ jobs:
             -o /tmp/janet-${TARGET}.o
           zig ar rcs /tmp/libjanet-${TARGET}.a /tmp/janet-${TARGET}.o
 
-          # Link ok for target arch.
+          # Link ok for target arch (strip to reduce size).
           mkdir -p bin
-          zig cc -target ${TARGET} -O2 \
+          zig cc -target ${TARGET} -O2 -s \
             -I "${JANET_BASE}/include" \
             build/ok.c \
             /tmp/libjanet-${TARGET}.a \
@@ -81,6 +81,31 @@ jobs:
 
       - name: assemble bundle
         run: DIST_TARGET=${{ matrix.target }} mise run bundle
+
+      - name: generate dependency report
+        run: |
+          TARGET=${{ matrix.target }}
+          JANET_BASE=$(mise where github:janet-lang/janet)
+          BUNDLE=$([ -d dist/bundle ] && echo dist/bundle || echo dist/bundle-${TARGET})
+          {
+            echo "ok dependency report"
+            echo "release:   ${GITHUB_REF_NAME}"
+            echo "target:    ${TARGET}"
+            echo "generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            echo "=== janet (ok runtime) ==="
+            "${JANET_BASE}/bin/janet" --version 2>&1 || true
+            echo ""
+            for comp in kak kak-lsp kak-tree-sitter; do
+              f="dist/${TARGET}/deps-${comp}.txt"
+              if [ -f "$f" ]; then
+                echo "=== ${comp} ==="
+                cat "$f"
+                echo ""
+              fi
+            done
+          } > DEPENDENCIES.txt
+          cp DEPENDENCIES.txt "${BUNDLE}/"
 
       - name: package
         run: |
