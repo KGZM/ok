@@ -12,21 +12,21 @@
 # GitHub fork: kgzm/kak
 # Upstream: https://github.com/mawww/kakoune
 upstream_commit = "2f7ac6f"  # master as of 2026-05-17
-release = "2026.05.20-48618a8e"
+release = "2026.05.20-c44f1cf4"
 
 [kak-lsp]
 # GitHub fork: kgzm/kak-lsp
 # Upstream: https://github.com/kakoune-lsp/kakoune-lsp
 upstream_version = "20.0.0-snapshot"
 upstream_commit = "b090ff6"  # master as of 2026-05-17
-release = "2026.05.20-c0907b0"
+release = "2026.05.20-8d5125e"
 
 [kak-tree-sitter]
 # GitHub fork: kgzm/kak-tree-sitter
 # Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
 upstream_version = "3.2.1"
 upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile + Source::Bundled
-release = "2026.05.20-2be5631"
+release = "2026.05.20-756bb56"
 #
 # NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
 # Build flags: --features kak-tree-sitter/direct-unix-socket
