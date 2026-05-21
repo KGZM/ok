@@ -70,6 +70,7 @@ jobs:
           zig ar rcs /tmp/libjanet-${TARGET}.a /tmp/janet-${TARGET}.o
 
           # Link ok for target arch.
+          mkdir -p bin
           zig cc -target ${TARGET} -O2 \
             -I "${JANET_BASE}/include" \
             build/ok.c \
