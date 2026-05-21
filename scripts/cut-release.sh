@@ -4,9 +4,9 @@
 set -euo pipefail
 
 DATE=$(date +%Y.%m.%d)
-HASH=$(mise exec -- jj log -r @- --no-graph -T 'commit_id.shortest(7)')
+HASH=$(jj log -r @- --no-graph -T 'commit_id.shortest(7)')
 TAG="v${DATE}-${HASH}"
 
 echo "→ ${TAG}"
-mise exec -- jj tag create "${TAG}" @-
-mise exec -- jj git push --tag "${TAG}"
+jj tag set "${TAG}" -r @-
+jj git push --remote github --tag "${TAG}"
