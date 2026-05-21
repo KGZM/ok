@@ -1,6 +1,6 @@
-# kak-emporium — Current Status
+# ok — Current Status
 
-Last updated: 2026-05-19
+Last updated: 2026-05-21
 
 ---
 
@@ -8,17 +8,36 @@ Last updated: 2026-05-19
 
 | Component | Status |
 |-----------|--------|
-| `kak` | static musl x86_64 ✓ |
-| `kak-lsp` | static musl x86_64 ✓, wired via autoload |
-| `kak-tree-sitter` | glibc dynamic x86_64 ✓, highlighting + text objects ✓ |
-| grammars | 215 compiled `.so` files ✓ |
-| `ok` binary | compiled via jpm ✓ |
+| `kak` | static musl x86_64 + aarch64 ✓ |
+| `kak-lsp` | static musl x86_64 + aarch64 ✓, wired via autoload |
+| `kak-tree-sitter` | glibc dynamic x86_64 + aarch64 ✓, highlighting + text objects ✓ |
+| grammars | 215 flat `.so` files (kgzm/grammars), Source::Bundled ✓ |
+| `ok` binary | compiled + stripped via jpm + zig cc ✓ |
+| CI release pipeline | x86_64 + aarch64 bundles publishing to GitHub Releases ✓ |
+| `mise use -g github:kgzm/ok` | end-user install working ✓ |
 | session detection | Zellij → `overk-$ZELLIJ_SESSION_NAME` ✓ |
 | splash screen | shows on first client only (`hook -once global ClientCreate`) ✓ |
 | clipboard | OSC 52 on y/d/c ✓ |
 | LSP user mode | `<space>l` → enter LSP user mode ✓ |
 | `:new` in zellij | opens new pane ✓ |
 | user kakrc | `~/.config/kak/kakrc` sourced correctly ✓ |
+| XDG_RUNTIME_DIR | fallback via mktemp if unset (containers etc.) ✓ |
+| DEPENDENCIES.txt | shipped with every release ✓ |
+
+---
+
+## Architecture notes
+
+**Grammars are decoupled from kak-tree-sitter.**
+kts uses `Source::Bundled` — looks for flat `.so` files at
+`$XDG_DATA_HOME/kak-tree-sitter/grammars/{lang}.so`. Since the kak
+wrapper sets `XDG_DATA_HOME=$BUNDLE/share`, grammars from `kgzm/grammars`
+land exactly there. kts no longer compiles or ships grammars.
+
+**Three operating modes:**
+- Mode 1 (source/dev): subrepos checked out, `make` + `mise run bundle`
+- Mode 2 (release): `mise use -g github:kgzm/ok` — pre-built bundle
+- Mode 3 (openface): ok repo checked out, `DIST_TARGET=... mise run fetch` + `mise run bundle`
 
 ---
 
@@ -26,11 +45,9 @@ Last updated: 2026-05-19
 
 lsp.kak + servers.kak in autoload — all LSP commands available automatically.
 
-**Per-buffer activation:**
-`:lsp-enable-window<ret>`
+**Per-buffer activation:** `:lsp-enable-window<ret>`
 
-**Navigate LSP commands:**
-`<space>l` → enter LSP user mode
+**Navigate LSP commands:** `<space>l` → enter LSP user mode
 
 **Auto-activation (add to `~/.config/kak/kakrc`):**
 ```kak
@@ -46,7 +63,8 @@ hook global WinSetOption filetype=(rust|python|go) %{
 ```
 ok [file]
   └── session.janet: detect ZELLIJ_SESSION_NAME → overk-<name>
-  └── kak wrapper: sets KAKOUNE_RUNTIME, XDG_DATA_HOME, KAK_TREE_SITTER_RUNTIME, PATH
+  └── kak wrapper: sets KAKOUNE_RUNTIME, XDG_DATA_HOME, KAK_TREE_SITTER_RUNTIME,
+  │               XDG_RUNTIME_DIR (fallback if unset), PATH
         └── kak-real starts server
               1. colorscheme default
               2. autoload/ (kak rc + lsp.kak + servers.kak)
@@ -62,39 +80,68 @@ ok [file]
 ## Build commands
 
 ```sh
-# Rebuild ok binary
-JANET_BASE=~/.local/share/mise/installs/github-janet-lang-janet/1.41.2
-rm -rf build/
-JANET_PATH="$JANET_BASE/usr/local/lib/janet" \
-JANET_HEADERPATH="$JANET_BASE/include" \
-  "$JANET_BASE/bin/janet" "$JANET_BASE/usr/local/lib/janet/jpm/cli.janet" build
-cp build/ok bin/ok
+# Install jpm (one-time — not bundled with janet release)
+git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src
+JANET_BASE=$(mise where github:janet-lang/janet)
+cp -r /tmp/jpm-src/jpm "$JANET_BASE/lib/janet/"
+cp /tmp/jpm-src/configs/linux_config.janet "$JANET_BASE/lib/janet/jpm/default-config.janet"
 
-# Assemble bundle
+# Rebuild ok binary (jpm generates ok.c; link step fails expectedly; we relink)
+mise run build-ok
+
+# Assemble bundle (Mode 1 — from local subrepo builds)
 mise run bundle
 
-# Rebuild kts (glibc target — do NOT use musl, dlopen required for grammars)
-make kak-tree-sitter DIST_TARGET=x86_64-linux
+# Assemble bundle (Mode 3 — from GitHub release artifacts)
+DIST_TARGET=x86_64-linux mise run fetch
+mise run bundle
+
+# Release: cut and push tags
+scripts/cut-release.sh   # in ok repo (jj)
+# in subrepos (git):
+scripts/cut-release.sh
 ```
+
+---
+
+## Release pipeline
+
+Each subrepo has its own CI + `scripts/cut-release.sh`. After cutting subrepo
+releases, update `components.toml` release fields, then cut an ok release.
+
+**Release order:**
+1. Cut kak, kak-lsp, kak-tree-sitter, grammars releases
+2. Wait for CI
+3. Update `components.toml` with new tags
+4. Cut ok release — CI fetches all components, builds ok binary, assembles bundle
+
+Each release ships `DEPENDENCIES.txt` with full cargo tree for Rust components.
+
+---
+
+## Security audit
+
+Grammar scanner.c files audited 2026-05-21:
+- No socket/network calls
+- No exec/popen/system calls (hits were in comments/identifiers only)
+- No fork/process calls
+- No file write calls (hits were parser function names like `scan_string_open`)
+- No dlopen/dlsym calls
+
+Rust deps audited indirectly via cargo tree in DEPENDENCIES.txt per release.
 
 ---
 
 ## Pending work
 
-### 🙋 Me (manual / decision tasks)
-- [ ] Wire `kgzm/grammars` into ok — add `[grammars]` to `components.toml`, update
-      `mise run fetch` and `mise run bundle` to download + extract grammar tarballs
-- [ ] Push `grammars/` repo to GitHub, tag v0.1.0 to trigger first CI release
-- [ ] Tag subrepos (kak, kak-lsp, kak-tree-sitter) to trigger their CI releases
-- [ ] Fill in `components.toml` release fields once CI produces artifacts
+### 🙋 Me
 - [ ] Repo curation before public — see `tmp/GITHUB_SETUP.md` checklist
-- [ ] Audit `grammars/*/scanner.c` for malice (grep for socket/exec/fork/popen/fopen)
+- [ ] Push master on subrepos + ok to GitHub after session
 
-### 🤖 Claude tasks (next session)
-- [ ] **macOS support** — Makefile target detection, kts wrapper for darwin, CI runners
-- [ ] **Systemd filetype fix** — match `.service`/`.timer` etc. by extension not path
+### 🤖 Claude
+- [ ] **Systemd filetype fix** — match `.service`/`.timer` by extension not path
 - [ ] **Keybindings** — `<space>b` buffer menu, `<space>f` fzf file picker (see PLAN.md)
 - [ ] **`scripts/update-grammar.sh`** — pull one grammar from upstream with diff review
 - [ ] **`scripts/verify-parser.sh`** — regen parser.c from grammar.js and diff for audit
-- [ ] Strip grammar compilation out of kts fork Makefile (now lives in grammars repo)
 - [ ] Integration test suite
+- [ ] macOS support (deeply backburnered)
