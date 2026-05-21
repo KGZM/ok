@@ -33,7 +33,7 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: install janet
-        run: mise install github-janet-lang-janet
+        run: mise install github:janet-lang/janet
 
       - name: fetch component tarballs
         env:
@@ -42,7 +42,7 @@ jobs:
 
       - name: build ok binary
         run: |
-          JANET_BASE=$(mise where github-janet-lang-janet)
+          JANET_BASE=$(mise where github:janet-lang/janet)
           TARGET=${{ matrix.janet_zig_target }}
 
           # Cross-compile libjanet.a for the target arch from the amalgamation source.
