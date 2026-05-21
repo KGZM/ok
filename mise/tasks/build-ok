@@ -5,41 +5,55 @@
 # Requires: janet + jpm, a C compiler (we use zig cc).
 #
 # jpm is NOT bundled with the janet GitHub release binary.
-# Bootstrap jpm first (one-time, idempotent):
+# Install jpm once (idempotent):
 #   git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src
-#   DESTDIR=$(mise where github:janet-lang/janet) janet /tmp/jpm-src/bootstrap.janet
+#   JANET_BASE=$(mise where github:janet-lang/janet)
+#   cp -r /tmp/jpm-src/jpm "$JANET_BASE/lib/janet/"
+#   cp /tmp/jpm-src/configs/linux_config.janet "$JANET_BASE/lib/janet/jpm/default-config.janet"
 #
 # Output: bin/ok — copy this into the bundle via mise run bundle.
-#
-# CI notes:
-#   - Install janet via: mise install
-#   - Bootstrap jpm (see above) — or install via system package manager
-#   - C compiler: zig cc (already in toolchain via mise)
-#   - Cross-compilation: jpm does not support cross-compile directly.
-#     For aarch64: run on an aarch64 runner.
+# Note: jpm's link step will fail (looks for system libjanet); that's fine —
+# we only need build/ok.c. Run mise run build-ok to compile for the host arch.
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
 
-JANET="$(mise where github:janet-lang/janet)/bin/janet"
-JANET_LIB="$(mise where github:janet-lang/janet)/usr/local/lib/janet"
+JANET_BASE="$(mise where github:janet-lang/janet)"
+JANET="$JANET_BASE/bin/janet"
+JANET_LIB="$JANET_BASE/lib/janet"
 JPM_CLI="$JANET_LIB/jpm/cli.janet"
 
 if [ ! -f "$JPM_CLI" ]; then
     echo "error: jpm not found at $JPM_CLI"
-    echo "  Bootstrap jpm first:"
+    echo "  Install jpm:"
     echo "    git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src"
-    echo "    DESTDIR=\$(mise where github:janet-lang/janet) \$JANET /tmp/jpm-src/bootstrap.janet"
+    echo "    cp -r /tmp/jpm-src/jpm \"\$JANET_BASE/lib/janet/\""
+    echo "    cp /tmp/jpm-src/configs/linux_config.janet \"\$JANET_BASE/lib/janet/jpm/default-config.janet\""
     exit 1
 fi
 
 export CC="zig cc"
 export CXX="zig c++"
 export JANET_PATH="$JANET_LIB"
-export JANET_HEADERPATH="$(mise where github:janet-lang/janet)/include"
+export JANET_HEADERPATH="$JANET_BASE/include"
 
 cd "$REPO"
-"$JANET" "$JPM_CLI" build
-cp build/ok bin/ok
+# Generate build/ok.c (link step fails — expected, we relink below)
+"$JANET" "$JPM_CLI" build || true
+
+# Compile libjanet.a from the amalgamation source (excludes shell.c/main).
+# The prebuilt lib/libjanet.a includes shell.c which has its own main — conflicts.
+zig cc -O2 -c \
+  -I "$JANET_BASE/include" \
+  "$JANET_BASE/src/janet.c" \
+  -o /tmp/libjanet-host.o
+zig ar rcs /tmp/libjanet-host.a /tmp/libjanet-host.o
+
+zig cc -O2 \
+  -I "$JANET_BASE/include" \
+  build/ok.c \
+  /tmp/libjanet-host.a \
+  -lm -ldl -lpthread \
+  -o bin/ok
 
 echo "==> ok compiled to $REPO/bin/ok"
 echo "    run 'mise run bundle' to include it in the bundle"

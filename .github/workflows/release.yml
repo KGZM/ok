@@ -35,6 +35,15 @@ jobs:
       - name: install janet
         run: mise install github:janet-lang/janet
 
+      - name: install jpm
+        run: |
+          JANET_BASE=$(mise where github:janet-lang/janet)
+          JANET_MODPATH="${JANET_BASE}/lib/janet"
+          git clone --depth=1 https://github.com/janet-lang/jpm /tmp/jpm-src
+          mkdir -p "${JANET_MODPATH}"
+          cp -r /tmp/jpm-src/jpm "${JANET_MODPATH}/"
+          cp /tmp/jpm-src/configs/linux_config.janet "${JANET_MODPATH}/jpm/default-config.janet"
+
       - name: fetch component tarballs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -43,7 +52,15 @@ jobs:
       - name: build ok binary
         run: |
           JANET_BASE=$(mise where github:janet-lang/janet)
+          JANET_MODPATH="${JANET_BASE}/lib/janet"
           TARGET=${{ matrix.janet_zig_target }}
+
+          # Generate ok.c via jpm on the host (link step will fail — that's expected;
+          # we only need the C source and link against our cross-compiled libjanet.a).
+          JANET_PATH="${JANET_MODPATH}" \
+          JANET_HEADERPATH="${JANET_BASE}/include" \
+          CC="zig cc" \
+            "${JANET_BASE}/bin/janet" "${JANET_MODPATH}/jpm/cli.janet" build || true
 
           # Cross-compile libjanet.a for the target arch from the amalgamation source.
           zig cc -target ${TARGET} -O2 -c \
@@ -52,14 +69,7 @@ jobs:
             -o /tmp/janet-${TARGET}.o
           zig ar rcs /tmp/libjanet-${TARGET}.a /tmp/janet-${TARGET}.o
 
-          # Generate ok C source via jpm on the host.
-          JANET_PATH="${JANET_BASE}/usr/local/lib/janet" \
-          JANET_HEADERPATH="${JANET_BASE}/include" \
-            "${JANET_BASE}/bin/janet" \
-            "${JANET_BASE}/usr/local/lib/janet/jpm/cli.janet" \
-            build
-
-          # Link for target arch.
+          # Link ok for target arch.
           zig cc -target ${TARGET} -O2 \
             -I "${JANET_BASE}/include" \
             build/ok.c \
