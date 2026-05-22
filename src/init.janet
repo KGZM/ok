@@ -1,4 +1,8 @@
 (import ./clipboard)
+(import ./buffers)
+(import ./files)
+(import ./search)
+(import ./jump)
 
 (defn run
   `Prints kak initialization script to stdout.
@@ -59,6 +63,16 @@
     "set-face global ts_markup_italic    default+i\n"
     "set-face global ts_markup_raw       mono\n"
     "set-face global ts_markup_link_url  link\n"
+
+    # ── leader key modules ────────────────────────────────────────────────────
+    "\n"
+    (buffers/register)
+    "\n"
+    (files/register)
+    "\n"
+    (search/register)
+    "\n"
+    (jump/register)
     "\n"
     # Source user ok config last so it overrides all ok defaults above.
     # ~/.config/ok/kakrc is the ok-specific config; ~/.config/kak/kakrc is NOT loaded
