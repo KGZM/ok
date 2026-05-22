@@ -153,12 +153,9 @@ define-command ok-jump-line \
   }
 }
 
-map global jump c ': ok-jump-char<ret>'        -docstring 'jump to char [easymotion]'
-map global jump w ': ok-jump-word<ret>'        -docstring 'jump to word [easymotion]'
-map global jump l ': ok-jump-line<ret>'        -docstring 'jump to line [fzf]'
-map global jump d ': lsp-definition<ret>'      -docstring 'definition [LSP]'
-map global jump r ': lsp-references<ret>'      -docstring 'references [LSP]'
-map global jump D ': lsp-type-definition<ret>' -docstring 'type definition [LSP]'
+map global jump c ': ok-jump-char<ret>' -docstring 'jump to char [easymotion, 1-9]'
+map global jump w ': ok-jump-word<ret>' -docstring 'jump to word [easymotion, 1-9]'
+map global jump l ': ok-jump-line<ret>' -docstring 'jump to line [fzf]'
 
 map global user j ': enter-user-mode jump<ret>' -docstring 'jump'
 ``)

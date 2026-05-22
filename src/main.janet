@@ -5,6 +5,8 @@
 (import ./files)
 (import ./search)
 (import ./jump)
+(import ./code)
+(import ./project)
 
 # ── --api dispatch ────────────────────────────────────────────────────────────
 # Kak-facing API. Called from kak %sh{} blocks, never by users.
@@ -16,9 +18,10 @@
     "init"      (init/run (array/slice argv 1))
     "clipboard" (clipboard/dispatch (array/slice argv 1))
     "splash"    (splash/dispatch (array/slice argv 1))
-    "files"     (files/dispatch  (array/slice argv 1))
-    "search"    (search/dispatch (array/slice argv 1))
-    "jump"      (jump/dispatch   (array/slice argv 1))
+    "files"     (files/dispatch   (array/slice argv 1))
+    "search"    (search/dispatch  (array/slice argv 1))
+    "jump"      (jump/dispatch    (array/slice argv 1))
+    "project"   (project/dispatch (array/slice argv 1))
     (do
       (eprintf "ok --api: unknown module '%s'\n" (get argv 0 ""))
       (os/exit 1))))

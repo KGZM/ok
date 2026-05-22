@@ -3,6 +3,8 @@
 (import ./files)
 (import ./search)
 (import ./jump)
+(import ./code)
+(import ./project)
 
 (defn run
   `Prints kak initialization script to stdout.
@@ -73,6 +75,10 @@
     (search/register)
     "\n"
     (jump/register)
+    "\n"
+    (code/register)
+    "\n"
+    (project/register)
     "\n"
     # Source user ok config last so it overrides all ok defaults above.
     # ~/.config/ok/kakrc is the ok-specific config; ~/.config/kak/kakrc is NOT loaded

@@ -103,11 +103,22 @@ define-command ok-search-word \
   }
 }
 
+define-command ok-search-dir \
+  -docstring 'search current directory with ripgrep + fzf' %{
+  evaluate-commands %sh{
+    ok --api search project "$kak_session" "$kak_client" "$(pwd)"
+  }
+}
+
 map global search s ': ok-search-buffer<ret>'   -docstring 'search buffer'
+map global search S ': ok-search-word<ret>'     -docstring 'search buffer for word'
 map global search p ': ok-search-project<ret>'  -docstring 'search project'
-map global search w ': ok-search-word<ret>'     -docstring 'search word'
+map global search d ': ok-search-dir<ret>'      -docstring 'search directory'
+map global search w ': ok-search-word<ret>'     -docstring 'search word at point'
 map global search n ': execute-keys //<ret>'    -docstring 'search forward'
 map global search N ': execute-keys <lt>a-/><lt>a-/><ret>' -docstring 'search backward'
 
 map global user s ': enter-user-mode search<ret>' -docstring 'search'
+map global user / ': ok-search-project<ret>'      -docstring 'search project'
+map global user '*' ': ok-search-word<ret>'       -docstring 'search word at point'
 ``)
