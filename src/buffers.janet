@@ -1,109 +1,116 @@
 # buffers — SPC-b: buffer management
-#
-# Doom equivalents (SPC-b):
-#   SPC-b-b / ,   switch buffer
-#   SPC-b-[/]     previous/next buffer (also SPC-b-p/n)
-#   SPC-b-d       kill buffer
-#   SPC-b-k       kill buffer (alias)
-#   SPC-b-K       kill all buffers
-#   SPC-b-l       switch to last buffer
-#   SPC-b-n       next buffer
-#   SPC-b-N       new empty scratch buffer
-#   SPC-b-O       kill other buffers
-#   SPC-b-p       previous buffer
-#   SPC-b-r       revert buffer
-#   SPC-b-s       save buffer
-#   SPC-b-S       save all buffers
-#   SPC-b-x       scratch buffer (toggle)
+
+(import ./kak)
+
+# ── Janet API Handlers ────────────────────────────────────────────────────────
+
+(defn- last-buffer [bufname quoted-buflist]
+  (def buflist (kak/parse-quoted-list (or quoted-buflist "")))
+  (var last nil)
+  (each buf buflist
+    (when (and (not= buf bufname) (nil? last))
+      (set last buf)))
+  (when last
+    (print (kak/compile-expr [:buffer last]))))
+
+(defn- new-buffer []
+  (def name (string "*scratch-" (os/time) "*"))
+  (print (kak/compile-expr [:edit :scratch name])))
+
+(defn- kill-others [bufname quoted-buflist]
+  (def buflist (kak/parse-quoted-list (or quoted-buflist "")))
+  (def cmds @[])
+  (each buf buflist
+    (when (not= buf bufname)
+      (array/push cmds [:try [:delete-buffer buf]])))
+  (print (kak/compile-expr [:block ;cmds])))
+
+(defn- kill-all [quoted-buflist]
+  (def buflist (kak/parse-quoted-list (or quoted-buflist "")))
+  (def cmds @[])
+  (each buf buflist
+    (array/push cmds [:try [:delete-buffer buf]]))
+  (print (kak/compile-expr [:block ;cmds])))
+
+(defn- list-buffers [quoted-buflist]
+  (def buflist (kak/parse-quoted-list (or quoted-buflist "")))
+  (def filtered-bufs @[])
+  (each buf buflist
+    (unless (string/has-prefix? "*" buf)
+      (array/push filtered-bufs buf)))
+  (def bufs-str (string (string/join filtered-bufs "\n") "\n"))
+  (def cmds
+    [[:edit :scratch "*buflist*"]
+     [:set-option :buffer :filetype "scratch"]
+     [:set-register "\"" bufs-str]
+     [:execute-keys "%<a-d>Pgg"]
+     [:map :buffer :normal "<ret>"
+      (kak/compile-expr [:evaluate-commands
+                         [:sh (kak/api-cmd :buffers :list-select :selection)]])]
+     [:map :buffer :normal "d"
+      (kak/compile-expr [:evaluate-commands
+                         [:sh (kak/api-cmd :buffers :list-delete :selection :quoted_buflist)]])]])
+  (print (kak/compile-expr [:block ;cmds])))
+
+(defn- list-select [selection]
+  (print (kak/compile-expr [:buffer selection])))
+
+(defn- list-delete [selection quoted-buflist]
+  (def cmds
+    [[:try [:delete-buffer selection]]
+     [:try [:delete-buffer "*buflist*"]]
+     [:evaluate-commands [:sh (kak/api-cmd :buffers :list :quoted_buflist)]]])
+  (print (kak/compile-expr [:block ;cmds])))
+
+# ── API Dispatch ──────────────────────────────────────────────────────────────
+
+(defn dispatch [argv]
+  (case (get argv 0)
+    "last"        (last-buffer (get argv 1) (get argv 2))
+    "new"         (new-buffer)
+    "kill-others" (kill-others (get argv 1) (get argv 2))
+    "kill-all"    (kill-all (get argv 1))
+    "list"        (list-buffers (get argv 1))
+    "list-select" (list-select (get argv 1))
+    "list-delete" (list-delete (get argv 1) (get argv 2))
+    (do
+      (eprintf "ok --api buffers: unknown action '%s'\n" (get argv 0 ""))
+      (os/exit 1))))
+
+# ── Kakoune Setup Registration ────────────────────────────────────────────────
 
 (defn register []
-  ``
-# ── buffers (SPC-b) ───────────────────────────────────────────────────────────
-declare-user-mode buffers
+  (string
+    "# ── buffers (SPC-b) ───────────────────────────────────────────────────────────\n"
+    (kak/declare-user-mode :buffers) "\n"
 
-define-command ok-buffers-switch \
-  -docstring 'switch to buffer by name (fuzzy completion)' %{
-  prompt -menu buffer: -buffer-completion %{ buffer %val{text} }
-}
+    (kak/compile-expr
+      [:define-command :ok-buffers-switch :docstring "switch to buffer by name (fuzzy completion)"
+       [:block
+        [:prompt :menu "buffer: " :buffer-completion [:block [:raw "buffer %val{text}"]]]]]) "\n"
 
-define-command ok-buffers-last \
-  -docstring 'switch to last (alternate) buffer' %{
-  evaluate-commands %sh{
-    # kak_opt_buflist: first entry after current is the alternate
-    current=$kak_bufname
-    last=""
-    for buf in $kak_opt_buflist; do
-      [ "$buf" != "$current" ] && [ -z "$last" ] && last=$buf
-    done
-    [ -n "$last" ] && printf 'buffer %%{%s}\n' "$last"
-  }
-}
+    (kak/defcmd-api :ok-buffers-last "switch to last (alternate) buffer" :buffers :last [:bufname :quoted_buflist]) "\n"
+    (kak/defcmd-api :ok-buffers-new "open a new empty scratch buffer" :buffers :new []) "\n"
+    (kak/defcmd-api :ok-buffers-kill-others "kill all buffers except the current one" :buffers :kill-others [:bufname :quoted_buflist]) "\n"
+    (kak/defcmd-api :ok-buffers-kill-all "kill all buffers" :buffers :kill-all [:quoted_buflist]) "\n"
+    (kak/defcmd-api :ok-buffers-list "list open buffers in a scratch buffer" :buffers :list [:quoted_buflist]) "\n"
 
-define-command ok-buffers-new \
-  -docstring 'open a new empty scratch buffer' %{
-  evaluate-commands %sh{
-    printf 'edit -scratch *scratch-%s*\n' "$(date +%s)"
-  }
-}
+    (kak/map :global :buffers "b" ":ok-buffers-switch<ret>" :docstring "switch buffer") "\n"
+    (kak/map :global :buffers "[" ":buffer-previous<ret>" :docstring "previous buffer") "\n"
+    (kak/map :global :buffers "]" ":buffer-next<ret>" :docstring "next buffer") "\n"
+    (kak/map :global :buffers "d" ":delete-buffer<ret>" :docstring "kill buffer") "\n"
+    (kak/map :global :buffers "k" ":delete-buffer<ret>" :docstring "kill buffer") "\n"
+    (kak/map :global :buffers "K" ":ok-buffers-kill-all<ret>" :docstring "kill all buffers") "\n"
+    (kak/map :global :buffers "l" ":ok-buffers-last<ret>" :docstring "last buffer") "\n"
+    (kak/map :global :buffers "n" ":buffer-next<ret>" :docstring "next buffer") "\n"
+    (kak/map :global :buffers "N" ":ok-buffers-new<ret>" :docstring "new scratch buffer") "\n"
+    (kak/map :global :buffers "O" ":ok-buffers-kill-others<ret>" :docstring "kill other buffers") "\n"
+    (kak/map :global :buffers "p" ":buffer-previous<ret>" :docstring "previous buffer") "\n"
+    (kak/map :global :buffers "r" ":edit!<ret>" :docstring "revert buffer") "\n"
+    (kak/map :global :buffers "s" ":write<ret>" :docstring "save buffer") "\n"
+    (kak/map :global :buffers "S" ":write-all<ret>" :docstring "save all buffers") "\n"
+    (kak/map :global :buffers "x" ":edit -scratch *scratch*<ret>" :docstring "scratch buffer") "\n"
+    (kak/map :global :buffers "i" ":ok-buffers-list<ret>" :docstring "list buffers") "\n"
 
-define-command ok-buffers-kill-others \
-  -docstring 'kill all buffers except the current one' %{
-  evaluate-commands %sh{
-    current=$kak_bufname
-    for buf in $kak_opt_buflist; do
-      [ "$buf" != "$current" ] && printf 'try %%{ delete-buffer %%{%s} }\n' "$buf"
-    done
-  }
-}
-
-define-command ok-buffers-kill-all \
-  -docstring 'kill all buffers' %{
-  evaluate-commands %sh{
-    for buf in $kak_opt_buflist; do
-      printf 'try %%{ delete-buffer %%{%s} }\n' "$buf"
-    done
-  }
-}
-
-define-command ok-buffers-list \
-  -docstring 'list open buffers in a scratch buffer' %{
-  edit -scratch *buflist*
-  set-option buffer filetype scratch
-  evaluate-commands %sh{
-    printf 'set-register dquote %%{%s}\n' \
-      "$(printf '%s\n' $kak_opt_buflist | grep -v '^\*')"
-  }
-  execute-keys '%<a-d>P'
-  execute-keys 'gg'
-  map buffer normal <ret> %{
-    evaluate-commands %sh{ printf 'buffer %%{%s}\n' "$kak_selection" }
-  }
-  map buffer normal d %{
-    evaluate-commands %sh{
-      buf=$kak_selection
-      printf 'delete-buffer %%{%s}\n' "$buf"
-      printf 'delete-buffer *buflist*\n'
-      printf 'ok-buffers-list\n'
-    }
-  }
-}
-
-map global buffers b ': ok-buffers-switch<ret>'      -docstring 'switch buffer'
-map global buffers <[> ': buffer-previous<ret>'      -docstring 'previous buffer'
-map global buffers <]> ': buffer-next<ret>'          -docstring 'next buffer'
-map global buffers d ': delete-buffer<ret>'          -docstring 'kill buffer'
-map global buffers k ': delete-buffer<ret>'          -docstring 'kill buffer'
-map global buffers K ': ok-buffers-kill-all<ret>'    -docstring 'kill all buffers'
-map global buffers l ': ok-buffers-last<ret>'        -docstring 'last buffer'
-map global buffers n ': buffer-next<ret>'            -docstring 'next buffer'
-map global buffers N ': ok-buffers-new<ret>'         -docstring 'new scratch buffer'
-map global buffers O ': ok-buffers-kill-others<ret>' -docstring 'kill other buffers'
-map global buffers p ': buffer-previous<ret>'        -docstring 'previous buffer'
-map global buffers r ': edit!<ret>'                  -docstring 'revert buffer'
-map global buffers s ': write<ret>'                  -docstring 'save buffer'
-map global buffers S ': write-all<ret>'              -docstring 'save all buffers'
-map global buffers x ': edit -scratch *scratch*<ret>' -docstring 'scratch buffer'
-map global buffers i ': ok-buffers-list<ret>'        -docstring 'list buffers'
-
-map global user b ': enter-user-mode buffers<ret>' -docstring 'buffers'
-``)
+    (kak/map :global :user "b" ":enter-user-mode buffers<ret>" :docstring "buffers") "\n"
+  ))

@@ -2,11 +2,14 @@
 (import ./init)
 (import ./clipboard)
 (import ./splash)
+(import ./buffers)
 (import ./files)
 (import ./search)
 (import ./jump)
 (import ./code)
 (import ./project)
+(import ./kak)
+(import ./env)
 
 # ── --api dispatch ────────────────────────────────────────────────────────────
 # Kak-facing API. Called from kak %sh{} blocks, never by users.
@@ -18,6 +21,7 @@
     "init"      (init/run (array/slice argv 1))
     "clipboard" (clipboard/dispatch (array/slice argv 1))
     "splash"    (splash/dispatch (array/slice argv 1))
+    "buffers"   (buffers/dispatch (array/slice argv 1))
     "files"     (files/dispatch   (array/slice argv 1))
     "search"    (search/dispatch  (array/slice argv 1))
     "jump"      (jump/dispatch    (array/slice argv 1))

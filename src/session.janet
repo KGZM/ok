@@ -13,8 +13,15 @@
 
 (defn exists?
   "Returns true if a kak session with the given name is currently running.
-  Checks for the session socket at $XDG_RUNTIME_DIR/kakoune/<session>."
+  Uses `kak -l` so the kak wrapper resolves XDG_RUNTIME_DIR consistently —
+  avoids mismatches when the wrapper uses a fallback tmpdir that differs
+  from the caller's environment."
   [session]
-  (let [runtime (or (os/getenv "XDG_RUNTIME_DIR") "/tmp")
-        socket  (string runtime "/kakoune/" session)]
-    (not (nil? (os/stat socket)))))
+  (def buf @"")
+  (def proc (os/spawn ["kak" "-l"] :p {:out :pipe :err :pipe}))
+  (ev/read (proc :out) 4096 buf)
+  (:wait proc)
+  (var found false)
+  (each line (string/split "\n" (string/trimr (string buf)))
+    (when (= line session) (set found true)))
+  found)

@@ -5,6 +5,7 @@
 (import ./jump)
 (import ./code)
 (import ./project)
+(import ./kak)
 
 (defn run
   `Prints kak initialization script to stdout.
@@ -28,12 +29,13 @@
     # LSP user mode — <space>l to enter, then LSP commands.
     # Explicit per-buffer activation: :lsp-enable-window
     # Auto-activation: add WinSetOption filetype=(...) hook in your kakrc.
-    "map global user l ':enter-user-mode lsp<ret>' -docstring 'LSP'\n"
+    (kak/map :global :user "l" ":enter-user-mode lsp<ret>" :docstring "LSP") "\n"
+    (kak/map :global :user "t" ": enter-user-mode tree-sitter<ret>" :docstring "tree-sitter") "\n"
     "\n"
     (if splash?
       (string
         "hook -once global ClientCreate .* %{\n"
-        "  evaluate-commands %sh{ ok --api splash show %val{window_width} $kak_session }\n"
+        "  " (kak/eval-sh "ok --api splash show %val{window_width} $kak_session") "\n"
         "}\n"
         "\n")
       "")

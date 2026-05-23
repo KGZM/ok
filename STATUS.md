@@ -1,6 +1,6 @@
 # ok — Current Status
 
-Last updated: 2026-05-21
+Last updated: 2026-05-23
 
 ---
 
@@ -20,6 +20,10 @@ Last updated: 2026-05-21
 | clipboard | OSC 52 on y/d/c ✓ |
 | LSP user mode | `<space>l` → enter LSP user mode ✓ |
 | `:new` in zellij | opens new pane ✓ |
+| space leader | Doom-style keybindings (SPC b/f/s/j/c/p) with fzf + easymotion ✓ |
+| zellij redirection | floating pane execution stdout/stderr suppressed ✓ |
+| DSL try-block quoting | try-block expressions automatically wrapped in block ✓ |
+| FZF callback refactoring | interactive pick- callbacks in multiplexer panes ✓ |
 | user kakrc | `~/.config/kak/kakrc` sourced correctly ✓ |
 | XDG_RUNTIME_DIR | fallback via mktemp if unset (containers etc.) ✓ |
 | DEPENDENCIES.txt | shipped with every release ✓ |
@@ -140,7 +144,7 @@ Rust deps audited indirectly via cargo tree in DEPENDENCIES.txt per release.
 
 ### 🤖 Claude
 - [ ] **Systemd filetype fix** — match `.service`/`.timer` by extension not path
-- [ ] **Keybindings** — `<space>b` buffer menu, `<space>f` fzf file picker (see PLAN.md)
+- [x] **Keybindings** — `<space>b` buffer menu, `<space>f` fzf file picker (see PLAN.md)
 - [ ] **`scripts/update-grammar.sh`** — pull one grammar from upstream with diff review
 - [ ] **`scripts/verify-parser.sh`** — regen parser.c from grammar.js and diff for audit
 - [ ] Integration test suite

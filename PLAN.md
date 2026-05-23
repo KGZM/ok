@@ -253,35 +253,83 @@ and changes take effect immediately without recompilation.
 1. **aarch64 builds** — `make aarch64`, test with qemu binfmt_misc
 2. **GitHub forks** — create kgzm/ok (this repo) + subrepo forks for upstream tracking
 3. **CI workflow** — single workflow here builds from source and publishes `ok` release
-4. **Keybindings** — `<space>b` buffers, `<space>f` files (see below)
+4. **Keybindings / Space Leader System** — Doom-style Space Leader keybindings (SPC b/f/s/j/c/p) with fzf + easymotion ✓ (Completed)
+5. **FZF Callback Refactoring / API Callbacks** — Transitioned interactive launchers to unified CLI callback subcommands ✓ (Completed)
 
 ---
 
-## Keybindings / Convenience Features (priority 3)
+## Keybindings / Convenience Features (Completed)
 
-### `<space>b` — buffer management
+The Space Leader System has been implemented in Janet under `src/` and fully refactored. It aligns with the **Doom Emacs** blueprint, structuring key mappings into distinct user-modes.
 
-| Key | Action |
-|-----|--------|
-| `n` | next buffer |
-| `p` | previous buffer |
-| `d` | delete buffer |
-| `b` | buffer picker — virtual `*buflist*` buffer with buffer-local maps |
+### 1. Implemented Modules and Mapping Structure
 
-The `*buflist*` approach (Option B) is preferred over fzf for buffer picking:
-no external dep, richer interaction (buffer-local maps for delete, rename,
-etc.), composes with kak's selection model. The buffer IS the UI.
+*   **`<space>b` (Buffers)**:
+    *   `b`: Switch buffer (fuzzy completion menu)
+    *   `[` / `p`: Previous buffer
+    *   `]` / `n`: Next buffer
+    *   `d` / `k`: Kill buffer
+    *   `K`: Kill all buffers
+    *   `O`: Kill other buffers
+    *   `l`: Last (alternate) buffer
+    *   `N`: New scratch buffer
+    *   `r`: Revert buffer
+    *   `s` / `S`: Save buffer / Save all buffers
+    *   `x`: Scratch buffer
+    *   `i`: List buffers (virtual `*buflist*` buffer with local keymaps: `<ret>` to switch, `d` to delete)
+*   **`<space>f` (Files)**:
+    *   `f`: Find file in current directory via `fd`/`find` + `fzf`
+    *   `r`: Recent files (fzf over git-tracked files by mtime or fallback `find` by mtime)
+    *   `s`: Save file
+    *   `R`: Rename/move current file and update buffer cleanly
+    *   `D`: Delete current file on disk and close buffer
+    *   `y`: Yank absolute path of current file to `dquote` register
+    *   `Y`: Yank relative path (from project root) of current file to `dquote` register
+    *   `e`: File explorer (`yazi`, `ranger`, or `lf` launcher in Zellij float, Tmux popup, or Kak terminal fallback)
+    *   `t`: Terminal here (launches shell in current buffer directory)
+*   **`<space>s` (Search)**:
+    *   `s`: Search current buffer lines via `fzf`
+    *   `S` / `w` / `<space>*`: Search project for word under cursor via `rg` + `fzf`
+    *   `p` / `<space>/`: Search project via `rg` + `fzf`
+    *   `d`: Search current directory via `rg` + `fzf`
+    *   `n` / `N`: Search forward/backward (Kakoune native)
+*   **`<space>j` (Jump / Easymotion)**:
+    *   `c`: Jump to char (viewport-scoped easymotion with replacements `[1-9]`)
+    *   `w`: Jump to word (viewport-scoped easymotion with replacements `[1-9]`)
+    *   `l`: Jump to line (fzf swiper-style picker)
+*   **`<space>c` (Code / LSP)**:
+    *   `a`: Code actions
+    *   `d`: Jump to definition
+    *   `D`: Jump to references
+    *   `f`: Format buffer/region
+    *   `i`: Find implementations
+    *   `k`: Hover documentation
+    *   `r`: Rename symbol
+    *   `t`: Find type definition
+    *   `x`: List errors/diagnostics
+    *   `s`: Workspace symbol search
+    *   `e` / `E`: Enable/disable LSP for the current window
+*   **`<space>p` (Project)**:
+    *   `f`: Find file in project root
+    *   `p`: Switch project (fuzzy pick git repo from directories defined in `ok_project_paths` or defaults)
+    *   `r`: Show project root path in status line
+    *   `k`: Kill all buffers belonging to current project
+    *   `s`: Save all modified buffers belonging to current project
+    *   `!`: Open terminal/shell at project root
 
-### `<space>f` — file management
+### 2. Architectural Design & Tool Detection
 
-| Key | Action |
-|-----|--------|
-| `f` | fuzzy find files in workspace — **must be fzf** |
+*   **Decoupled & Modular Core**: Each concern lives in its own Janet module (`src/buffers.janet`, `src/files.janet`, etc.). Mappings are registered cleanly on initialization.
+*   **Janet-to-Kakscript DSL (`src/kak.janet`)**: Encapsulates Kakscript syntax generation. Rather than using raw string interpolation, it exposes strongly-typed functions like `kak/map`, `kak/defcmd`, `kak/declare-user-mode`, and `kak/defcmd-api` to keep command formatting consistent and secure.
+*   **Environment & Tool Detection API (`src/env.janet`)**: Centrally detects installed command-line utilities (`fd` vs `find`, `rg` vs `grep`, `bat` vs `cat`) and shell multiplexer state (`ZELLIJ_SESSION_NAME` vs `TMUX` vs graphical `DISPLAY`). It automatically adjusts launcher commands to run floating panes, popups, or external terminals accordingly.
+*   **E2E FZF Callback Architecture**: Refactored interactive launchers to delegate control to CLI callback subcommands (`ok --api <module> pick-<action> <session> <client> [args...]`). Previously, the system generated complex inline shell commands or temporary files to run `fzf` and capture selections. Now, launchers run a unified callback interface inside the spawned terminal/pane, allowing the Janet program to directly execute and communicate selections back to Kakoune via the session socket (`kak -p <session>`), eliminating escaping bugs.
+*   **Consistent Session Resolution (`src/session.janet`)**: Switched from direct `XDG_RUNTIME_DIR/kakoune/<session>` file-stat checks to invoking `kak -l` to fetch active sessions. This ensures consistency when the wrapper and caller resolve the Kak runtime/tmp socket directories.
 
-`fd` or `find` piped to `fzf`, result sent back to kak via `kak -p` as
-`edit <path>`. Runs in a terminal pane or inline with `fzf --height`.
+### 3. Key Bug Fixes Resolved in Refactoring
 
-### Implementation
-
-Pure kak script emitted from `src/init.janet`. No new `ok --api` subcommands
-needed for buffer ops. The fzf file picker uses a `%sh{}` block inline.
+*   **Space Splitting Bug**: Fixed a bug where buffer paths or directories containing spaces were split incorrectly into multiple arguments when looping or passing lists. Replaced naive `$kak_opt_buflist` iteration in shell commands with robust Kakoune quoted-list parsing (`eval "set -- $kak_quoted_buflist"`) to ensure space-preserved argument lists.
+*   **Duplicate Prefixes**: Consolidated user-mode mapping registration and eliminated overlapping prefix bindings between `:jump` and `:code`. Clear namespace separations now map LSP capabilities exclusively under `<space>c` and navigation under `<space>j`.
+*   **Rename Deletion Bug**: Resolved an issue where renaming a file opened the new buffer but closed the newly opened buffer instead of the old, renamed buffer. The file rename operations (`ok --api files rename`) now explicitly receive the old buffer path and use `delete-buffer <old_path>` after opening the new path.
+*   **Regex Escaping in Easymotion**: Addressed a regex parser crash in easymotion (`ok-jump-collect`) when searching for regex-active characters (like `[`, `*`, or `.`). Added a robust `sed` sanitization pipeline that escapes regex metacharacters before executing Kakoune's `s` (select) command.
+*   **Zellij Redirection Leak**: Fixed a bug where spawning a Zellij floating pane printed diagnostic shell output to stdout/stderr, which leaked into Kakoune and triggered `no such command: terminal_XX` errors. Resolved by redirecting the Zellij command output using `>/dev/null 2>&1`.
+*   **DSL Try-Block Quoting Bug**: Resolved a `try: wrong argument count` Kakoune error caused when unbracketed nested commands inside a `:try` form compiled to space-separated strings. The `:try` compiler in `src/kak.janet` now automatically wraps nested child commands in a bracketed `%{\n...\n}` block, ensuring correct argument grouping.

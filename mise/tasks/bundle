@@ -46,6 +46,10 @@ cat > "$BUNDLE/bin/kak" << 'WRAPPER'
 #!/bin/sh
 SELF="$(readlink -f "$0")"
 BUNDLE="$(dirname "$(dirname "$SELF")")"
+# Save original XDG_RUNTIME_DIR so tools like zellij/tmux can still find
+# their own sockets. kak may need a different (or fallback) path for its
+# own sockets, but overriding XDG_RUNTIME_DIR globally would break them.
+OK_OUTER_XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-}"
 # kak-tree-sitter requires XDG_RUNTIME_DIR to create its socket and pid file.
 # Fall back to a user-specific tmpdir if the session manager hasn't set it.
 if [ -z "$XDG_RUNTIME_DIR" ]; then
@@ -59,6 +63,7 @@ exec env \
     KAK_TREE_SITTER_RUNTIME="$BUNDLE/share/kak-tree-sitter" \
     XDG_DATA_HOME="$BUNDLE/share" \
     XDG_RUNTIME_DIR="$XDG_RUNTIME_DIR" \
+    OK_OUTER_XDG_RUNTIME_DIR="$OK_OUTER_XDG_RUNTIME_DIR" \
     PATH="$BUNDLE/bin:$PATH" \
     "$BUNDLE/bin/kak-real" "$@"
 WRAPPER
