@@ -91,3 +91,16 @@ This document serves as the project history log and registry of major design dec
 *   **Resolution**:
     *   Wrapped the search and process calls (`collect-search` and `collect-process`) inside a `:try [:block ...]` block in `ok-jump-collect`.
     *   This compiles to a Kakscript `try %{ ... }` block, cleanly swallowing the "nothing selected" error and skipping execution safely if no matches are found, preventing error banners and editor crashes.
+
+---
+
+## 8. Resolving the Jump Command `on-key` Argument Count Error
+*   **Date**: 2026-05-25
+*   **Decision**: Explicitly wrap arguments to the `on-key` command in a block element (`[:block ...]`).
+*   **Context**:
+    *   When calling `:ok-jump-word` or `:ok-jump-char`, Kakoune reported: `Error: 1:1: 'ok-jump-word': 3:1: 'on-key': wrong argument count`.
+    *   This occurred because the Janet-to-Kakscript DSL compiler parsed the nested command inside `on-key` as separate un-grouped words, rather than a single block parameter.
+*   **Resolution**:
+    *   Modified `src/jump.janet` so that all command arguments passed to `on-key` inside `ok-jump-char` and `ok-jump-word` are explicitly wrapped in a block element (`[:block ...]`).
+    *   This compiles the command body as a single grouped Kakscript block `%{\n...\n}`, resolving runtime argument count issues inside Kakoune.
+    *   Verified clean initialization of the command definitions and validated compiling/sourcing under headless Kakoune environment with zero errors.

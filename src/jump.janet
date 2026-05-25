@@ -152,18 +152,21 @@
       [:define-command :ok-jump-char :docstring "easymotion: highlight visible occurrences of char, [1-9] to jump"
        [:block
         [:on-key
-         [:evaluate-commands
-          [:block
-           [:ok-jump-collect [:val :key]]
-           [:on-key
-            [:evaluate-commands [:sh (kak/api-cmd :jump :handle-key :key)]]]]]]]]) "\n"
+         [:block
+          [:evaluate-commands
+           [:block
+            [:ok-jump-collect [:val :key]]
+            [:on-key
+             [:block
+              [:evaluate-commands [:sh (kak/api-cmd :jump :handle-key :key)]]]]]]]]]]) "\n"
 
     (kak/compile-expr
       [:define-command :ok-jump-word :docstring "easymotion: highlight visible word starts, [1-9] to jump"
        [:block
         [:ok-jump-collect "\\b\\w"]
         [:on-key
-         [:evaluate-commands [:sh (kak/api-cmd :jump :handle-key :key)]]]]]) "\n"
+         [:block
+          [:evaluate-commands [:sh (kak/api-cmd :jump :handle-key :key)]]]]]]) "\n"
 
     (kak/defcmd-api :ok-jump-line "jump to line (fzf swiper)" :jump :line [:session :client :buffile]) "\n"
 
