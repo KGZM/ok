@@ -82,4 +82,12 @@ This document serves as the project history log and registry of major design dec
     *   **Refactoring Space Leader Mappings**: Replaced all raw expansions in `src/jump.janet`, `src/buffers.janet`, and `src/files.janet` with the new type-safe AST primitives.
     *   **Mock Integration Suite**: Created a path-level E2E integration test (`test/test-integration.janet`) using dummy executables inside `/tmp/ok-mock-bin` to isolate and verify the entire multiplexer-loopback flow.
 
+---
 
+## 7. Jump Error Suppression (Nothing Selected)
+*   **Date**: 2026-05-25
+*   **Decision**: Wrap search and processing commands in a try-block in `ok-jump-collect`.
+*   **Context**: When `ok-jump-word` or `ok-jump-char` is invoked and no matching targets are visible in the viewport, the underlying Kakoune search command (`execute-keys 's...'`) fails and throws a "nothing selected" error. This halts the draft evaluation loop and surfaces error banners to the user.
+*   **Resolution**:
+    *   Wrapped the search and process calls (`collect-search` and `collect-process`) inside a `:try [:block ...]` block in `ok-jump-collect`.
+    *   This compiles to a Kakscript `try %{ ... }` block, cleanly swallowing the "nothing selected" error and skipping execution safely if no matches are found, preventing error banners and editor crashes.

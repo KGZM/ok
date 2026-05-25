@@ -30,6 +30,7 @@ Last updated: 2026-05-25
 | user kakrc | `~/.config/kak/kakrc` sourced correctly ✓ |
 | XDG_RUNTIME_DIR | fallback via mktemp if unset (containers etc.) ✓ |
 | DEPENDENCIES.txt | shipped with every release ✓ |
+| jump error suppression | suppress nothing selected error in ok-jump-word/char when no matches exist ✓ |
 
 ---
 

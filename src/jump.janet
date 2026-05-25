@@ -142,8 +142,10 @@
         [:evaluate-commands :draft
          [:block
           [:evaluate-commands [:sh (kak/api-cmd :jump :collect-scope :cursor_line)]]
-          [:evaluate-commands [:sh (kak/api-cmd :jump :collect-search [:sh-var "1"])]]
-          [:evaluate-commands [:sh (kak/api-cmd :jump :collect-process :timestamp :selections_desc)]]]]
+          [:try
+           [:block
+            [:evaluate-commands [:sh (kak/api-cmd :jump :collect-search [:sh-var "1"])]]
+            [:evaluate-commands [:sh (kak/api-cmd :jump :collect-process :timestamp :selections_desc)]]]]]]
         [:add-highlighter "window/ok-jump" :replace-ranges :ok_jump_overlay]]]) "\n"
 
     (kak/compile-expr
