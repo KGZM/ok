@@ -1,4 +1,7 @@
 (import ../src/kak)
+(import ../src/jump)
+(import ../src/buffers)
+(import ../src/files)
 
 # Helper to check if a string contains another string
 (defn- contains? [str substr]
@@ -100,6 +103,11 @@
 (assert (= "hello" (kak/compile-expr [:raw "hello"])) "compile-expr: raw")
 (assert (= "\"$my_var\"" (kak/compile-expr [:sh-var "my_var"])) "compile-expr: sh-var")
 (assert (= "\"$(date +%s)\"" (kak/compile-expr [:sh-call "date +%s"])) "compile-expr: sh-call")
+(assert (= "%val{timestamp}" (kak/compile-expr [:val :timestamp])) "compile-expr: val")
+(assert (= "%opt{my_opt}" (kak/compile-expr [:opt :my_opt])) "compile-expr: opt")
+(assert (= "%reg{a}" (kak/compile-expr [:reg :a])) "compile-expr: reg")
+(assert (= "\"%val{text}\"" (kak/compile-expr [:dq [:val :text]])) "compile-expr: dq with nested val")
+(assert (= "\"hello\"" (kak/compile-expr [:dq "hello"])) "compile-expr: dq with string")
 (assert (= "define-command -docstring 'Open a file' -params 1 my-cmd %{\nhello\n}" 
            (kak/compile-expr [:define-command :my-cmd :docstring "Open a file" :params 1 [:block [:raw "hello"]]]))
         "compile-expr: keyword gathering for command switches")
@@ -111,5 +119,15 @@
 (assert (= "buf1" (get parsed 0)) "parse-quoted-list: buf1")
 (assert (= "buf2" (get parsed 1)) "parse-quoted-list: buf2")
 (assert (= "buf'3" (get parsed 2)) "parse-quoted-list: buf'3")
+# ── Regression checks for single-quoted expansions ────────────────────────────
+(print "Testing registration output for regressions...")
+(let [jump-reg (jump/register)
+      buffers-reg (buffers/register)
+      files-reg (files/register)]
+  (assert (not (contains? jump-reg "'%val{timestamp}'")) "jump register: no quoted timestamp")
+  (assert (not (contains? jump-reg "'$1'")) "jump register: no quoted $1")
+  (assert (not (contains? jump-reg "'%val{key}'")) "jump register: no quoted key")
+  (assert (not (contains? buffers-reg "'%val{text}'")) "buffers register: no quoted text")
+  (assert (not (contains? files-reg "'%val{text}'")) "files register: no quoted text"))
 
 (print "\nAll kak DSL tests passed.")

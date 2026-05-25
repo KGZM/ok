@@ -182,6 +182,27 @@
             (let [val (get expr 1)]
               (string "\"$(" (if (string? val) val (compile-expr val)) ")\""))
             (error "sh-call form takes exactly 1 argument"))
+
+          :val
+          (if (= (length expr) 2)
+            (string "%val{" (string (get expr 1)) "}")
+            (error "val form takes exactly 1 argument"))
+
+          :opt
+          (if (= (length expr) 2)
+            (string "%opt{" (string (get expr 1)) "}")
+            (error "opt form takes exactly 1 argument"))
+
+          :reg
+          (if (= (length expr) 2)
+            (string "%reg{" (string (get expr 1)) "}")
+            (error "reg form takes exactly 1 argument"))
+
+          :dq
+          (if (= (length expr) 2)
+            (let [val (get expr 1)]
+              (string "\"" (if (string? val) val (compile-expr val)) "\""))
+            (error "dq form takes exactly 1 argument"))
           
           # default command call
           (let [cmd-name (cond

@@ -130,7 +130,7 @@
       [:define-command :ok-jump-clear :hidden
        [:block
         [:try [:remove-highlighter "window/ok-jump"]]
-        [:set-option :window :ok_jump_overlay "%val{timestamp}"]
+        [:set-option :window :ok_jump_overlay [:val :timestamp]]
         [:set-option :window :ok_jump_targets ""]]]) "\n"
 
     (kak/defcmd-api :ok-jump-to-n "jump to specific target" :jump :to-target [:key :opt_ok_jump_targets]) "\n"
@@ -142,7 +142,7 @@
         [:evaluate-commands :draft
          [:block
           [:evaluate-commands [:sh (kak/api-cmd :jump :collect-scope :cursor_line)]]
-          [:evaluate-commands [:sh (kak/api-cmd :jump :collect-search "$1")]]
+          [:evaluate-commands [:sh (kak/api-cmd :jump :collect-search [:sh-var "1"])]]
           [:evaluate-commands [:sh (kak/api-cmd :jump :collect-process :timestamp :selections_desc)]]]]
         [:add-highlighter "window/ok-jump" :replace-ranges :ok_jump_overlay]]]) "\n"
 
@@ -152,7 +152,7 @@
         [:on-key
          [:evaluate-commands
           [:block
-           [:ok-jump-collect "%val{key}"]
+           [:ok-jump-collect [:val :key]]
            [:on-key
             [:evaluate-commands [:sh (kak/api-cmd :jump :handle-key :key)]]]]]]]]) "\n"
 

@@ -117,7 +117,7 @@
              [:prompt "rename to: " :init buffile
               [:block
                [:evaluate-commands
-                [:sh (kak/api-cmd :files :rename session client buffile "%val{text}")]]]]))))
+                [:sh (kak/api-cmd :files :rename session client buffile [:dq [:val :text]])]]]]))))
 
 (defn- rename-file [argv]
   (def session (get argv 0))
@@ -143,7 +143,7 @@
               [:block
                [:evaluate-commands
                 [:sh
-                 [:raw (string "[ \"%val{text}\" = \"yes\" ] && "
+                 [:raw (string "[ " (kak/compile-expr [:dq [:val :text]]) " = \"yes\" ] && "
                                (kak/api-cmd :files :delete session client buffile))]]]]]))))
 
 (defn- delete-file [argv]

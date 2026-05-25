@@ -87,7 +87,7 @@
     (kak/compile-expr
       [:define-command :ok-buffers-switch :docstring "switch to buffer by name (fuzzy completion)"
        [:block
-        [:prompt :menu "buffer: " :buffer-completion [:block [:raw "buffer %val{text}"]]]]]) "\n"
+        [:prompt :menu "buffer: " :buffer-completion [:block [:buffer [:val :text]]]]]]) "\n"
 
     (kak/defcmd-api :ok-buffers-last "switch to last (alternate) buffer" :buffers :last [:bufname :quoted_buflist]) "\n"
     (kak/defcmd-api :ok-buffers-new "open a new empty scratch buffer" :buffers :new []) "\n"

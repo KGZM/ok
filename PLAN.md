@@ -255,6 +255,8 @@ and changes take effect immediately without recompilation.
 3. **CI workflow** — single workflow here builds from source and publishes `ok` release
 4. **Keybindings / Space Leader System** — Doom-style Space Leader keybindings (SPC b/f/s/j/c/p) with fzf + easymotion ✓ (Completed)
 5. **FZF Callback Refactoring / API Callbacks** — Transitioned interactive launchers to unified CLI callback subcommands ✓ (Completed)
+6. **Multiplexer Environment Forwarding & Mock-Based Integration Testing** — Solved PTY/daemon PATH forwarding issues and implemented end-to-end mock-based integration verification ✓ (Completed)
+7. **Janet DSL expansions (:val, :opt, :reg, :dq)** — Expanded DSL to support native Kakoune expansion and quoting syntax cleanly ✓ (Completed)
 
 ---
 
@@ -324,6 +326,8 @@ The Space Leader System has been implemented in Janet under `src/` and fully ref
 *   **Environment & Tool Detection API (`src/env.janet`)**: Centrally detects installed command-line utilities (`fd` vs `find`, `rg` vs `grep`, `bat` vs `cat`) and shell multiplexer state (`ZELLIJ_SESSION_NAME` vs `TMUX` vs graphical `DISPLAY`). It automatically adjusts launcher commands to run floating panes, popups, or external terminals accordingly.
 *   **E2E FZF Callback Architecture**: Refactored interactive launchers to delegate control to CLI callback subcommands (`ok --api <module> pick-<action> <session> <client> [args...]`). Previously, the system generated complex inline shell commands or temporary files to run `fzf` and capture selections. Now, launchers run a unified callback interface inside the spawned terminal/pane, allowing the Janet program to directly execute and communicate selections back to Kakoune via the session socket (`kak -p <session>`), eliminating escaping bugs.
 *   **Consistent Session Resolution (`src/session.janet`)**: Switched from direct `XDG_RUNTIME_DIR/kakoune/<session>` file-stat checks to invoking `kak -l` to fetch active sessions. This ensures consistency when the wrapper and caller resolve the Kak runtime/tmp socket directories.
+*   **Multiplexer Environment Forwarding**: Formulated and implemented environment variable serialization to forward path and runtime session variables (e.g. `PATH`, `XDG_RUNTIME_DIR`, `XDG_DATA_HOME`) into multiplexer client pane runs via the `env` binary, bypassing client-server daemon environment loss.
+*   **DSL Braced Expansions & Quoting**: Expanded the compiler to natively compile `[:val :key]`, `[:opt :name]`, and `[:reg :a]` expansions unquoted so Kakoune's Kakscript engine parses them dynamically. Introduced the `[:dq ...]` double-quoting form to allow clean variable expansions inside subshell calls while preventing argument split errors.
 
 ### 3. Key Bug Fixes Resolved in Refactoring
 
@@ -333,3 +337,6 @@ The Space Leader System has been implemented in Janet under `src/` and fully ref
 *   **Regex Escaping in Easymotion**: Addressed a regex parser crash in easymotion (`ok-jump-collect`) when searching for regex-active characters (like `[`, `*`, or `.`). Added a robust `sed` sanitization pipeline that escapes regex metacharacters before executing Kakoune's `s` (select) command.
 *   **Zellij Redirection Leak**: Fixed a bug where spawning a Zellij floating pane printed diagnostic shell output to stdout/stderr, which leaked into Kakoune and triggered `no such command: terminal_XX` errors. Resolved by redirecting the Zellij command output using `>/dev/null 2>&1`.
 *   **DSL Try-Block Quoting Bug**: Resolved a `try: wrong argument count` Kakoune error caused when unbracketed nested commands inside a `:try` form compiled to space-separated strings. The `:try` compiler in `src/kak.janet` now automatically wraps nested child commands in a bracketed `%{\n...\n}` block, ensuring correct argument grouping.
+*   **%val{timestamp} is not a number**: Resolved a startup crash in `ok-jump-clear` where `%val{timestamp}` was compiled within single quotes (`'%val{timestamp}'`), preventing dynamic evaluation and violating option type constraints. Solved by introducing native unquoted `:val` primitives.
+*   **Keypress Capture Quoting**: Fixed a bug where the key parameter passed to `ok-jump-collect` was compiled inside single quotes `'%val{key}'`, causing the literal string `"%val{key}"` to be processed instead of the actual key code. Resolved by compiling it unquoted.
+*   **Positional Parameter Expansion ($1)**: Fixed a bug where `$1` argument inside `ok-jump-collect` compiled to single-quoted `'$1'`, preventing the subshell from expanding it. Resolved by using `[:sh-var "1"]` to output double-quoted `"$1"` for correct parameter expansion.

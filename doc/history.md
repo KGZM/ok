@@ -66,3 +66,20 @@ This document serves as the project history log and registry of major design dec
     *   **Keyword-Switch Collision Fix**: In `src/kak.janet`, updated `api-cmd` to convert `module` and `action` arguments from keywords/strings to symbols using `(symbol module)` and `(symbol action)`. Since symbols do not trigger keyword switch logic, they compile cleanly to their literal names (e.g., `buffer` instead of `-buffer`), resolving the bug.
     *   **Verification**: Verified all unit tests (`./mise/tasks/test`) pass successfully, and validated E2E integration with zero errors.
 
+---
+
+## 6. Multiplexer Environment Forwarding & DSL Expansion
+*   **Date**: 2026-05-25
+*   **Decision**: Implement environment forwarding for terminal multiplexers, expand the DSL with native Kakoune expansions, and fix Kakscript quoting/expansion bugs.
+*   **Context**:
+    *   **Stale Multiplexer Daemon Environment**: When launching a pane in Zellij or Tmux, the spawned process inherits the background server daemon's environment rather than the active client shell's path. This caused `ok` binary lookup failures inside the new terminal panes.
+    *   **Startup Option Type Mismatch**: Wrapping `%val{timestamp}` in single quotes (`'%val{timestamp}'`) inside Kakoune `set-option` commands prevented Kakoune from expanding it, resulting in the runtime type crash `%val{timestamp} is not a number`.
+    *   **Key Capture Quoting Bug**: In `ok-jump-char`, `%val{key}` was quoted, passing the literal string `'%val{key}'` instead of the user's pressed character.
+    *   **Shell Argument Expansion Bug**: In `ok-jump-collect`, the positional parameter `$1` was compiled as `'$1'`, causing the subshell to pass it literally instead of performing shell parameter expansion.
+*   **Resolution**:
+    *   **Environment Forwarding**: Serialized the entire calling process environment and wrapped Tmux/Zellij commands with `env KEY=VALUE ...` prefixes. Added customizable redirection variables to silence multiplexer diagnostic outputs.
+    *   **DSL Expansion Primitives**: Added native AST support for `:val`, `:opt`, and `:reg` to compile expansions unquoted so they evaluate correctly in Kakoune. Introduced a `:dq` tag to safely double-quote values.
+    *   **Refactoring Space Leader Mappings**: Replaced all raw expansions in `src/jump.janet`, `src/buffers.janet`, and `src/files.janet` with the new type-safe AST primitives.
+    *   **Mock Integration Suite**: Created a path-level E2E integration test (`test/test-integration.janet`) using dummy executables inside `/tmp/ok-mock-bin` to isolate and verify the entire multiplexer-loopback flow.
+
+

@@ -1,6 +1,6 @@
 # ok — Current Status
 
-Last updated: 2026-05-23
+Last updated: 2026-05-25
 
 ---
 
@@ -24,6 +24,9 @@ Last updated: 2026-05-23
 | zellij redirection | floating pane execution stdout/stderr suppressed ✓ |
 | DSL try-block quoting | try-block expressions automatically wrapped in block ✓ |
 | FZF callback refactoring | interactive pick- callbacks in multiplexer panes ✓ |
+| multiplexer env forwarding | path and runtime environment variables forwarded to panes ✓ |
+| DSL native expansions | support for val/opt/reg/dq primitives in DSL to prevent quoting errors ✓ |
+| integration test suite | mock-based E2E path-level integration test suite ✓ |
 | user kakrc | `~/.config/kak/kakrc` sourced correctly ✓ |
 | XDG_RUNTIME_DIR | fallback via mktemp if unset (containers etc.) ✓ |
 | DEPENDENCIES.txt | shipped with every release ✓ |
@@ -147,5 +150,5 @@ Rust deps audited indirectly via cargo tree in DEPENDENCIES.txt per release.
 - [x] **Keybindings** — `<space>b` buffer menu, `<space>f` fzf file picker (see PLAN.md)
 - [ ] **`scripts/update-grammar.sh`** — pull one grammar from upstream with diff review
 - [ ] **`scripts/verify-parser.sh`** — regen parser.c from grammar.js and diff for audit
-- [ ] Integration test suite
+- [x] Integration test suite
 - [ ] macOS support (deeply backburnered)
