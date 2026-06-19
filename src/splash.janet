@@ -43,10 +43,11 @@
     "none detected"))
 
 (defn- gather [session]
-  (def xdg-data (or (os/getenv "XDG_DATA_HOME")
-                    (string (os/getenv "HOME") "/.local/share")))
-  (def grammar-dir (string xdg-data "/kak-tree-sitter/grammars"))
+  (def kts-runtime (or (os/getenv "KAK_TREE_SITTER_RUNTIME") ""))
+  (def grammar-dir (string kts-runtime "/grammars"))
+  (def query-dir   (string kts-runtime "/queries"))
   (def grammar-count (dir-count grammar-dir))
+  (def query-count   (dir-count query-dir))
   (def kts-ok (kts-running?))
   (def lsp-ok (= 0 (os/execute ["sh" "-c" "command -v kak-lsp > /dev/null 2>&1"] :p)))
 
@@ -54,7 +55,7 @@
     :windowing  (windowing)
     :kts-ok     kts-ok
     :kts-detail (if kts-ok
-                  (string "✓  running   (" grammar-count " grammars)")
+                  (string "✓  running   (" grammar-count " grammars, " query-count " query sets)")
                   "✗  not running")
     :lsp-ok     lsp-ok
     :lsp-detail (if lsp-ok "✓  available" "✗  not found")

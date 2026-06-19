@@ -85,6 +85,8 @@ fi
 cp "$LOCAL/share/kak/kakrc"     "$BUNDLE/share/kak/kakrc"
 # Strip user kakrc sourcing — ok sources ~/.config/ok/kakrc via ok --api init instead.
 sed -i '/if \[ -f "\${kak_config}\/kakrc" \]/,/^    fi$/d' "$BUNDLE/share/kak/kakrc"
+# Inject autoload-complete log line just before kakrc.local is sourced.
+sed -i 's|if \[ -f "\${kak_runtime}/kakrc.local" \]|echo "echo -debug '"'"'ok: autoload complete (rc + lsp)'"'"'"\n    if [ -f "${kak_runtime}/kakrc.local" ]|' "$BUNDLE/share/kak/kakrc"
 cp -r "$LOCAL/share/kak/rc"     "$BUNDLE/share/kak/rc"
 cp -r "$LOCAL/share/kak/colors" "$BUNDLE/share/kak/colors"
 cp -r "$LOCAL/share/kak/doc"    "$BUNDLE/share/kak/doc"
@@ -93,6 +95,7 @@ ln -sf ../rc "$BUNDLE/share/kak/autoload/rc"
 # kakrc.local — daemon init. $kak_session is set in %sh{} blocks sourced from
 # the runtime kakrc (unlike -E where it is not available).
 cat > "$BUNDLE/share/kak/kakrc.local" << 'KAKRC_LOCAL'
+echo -debug 'ok: kts init begin'
 evaluate-commands %sh{
   kts_dir="${XDG_RUNTIME_DIR}/kak-tree-sitter"
   pid_file="${kts_dir}/pid"
@@ -170,6 +173,7 @@ evaluate-commands %sh{
     done < "${daemon_stderr}"
   fi
 }
+echo -debug 'ok: kts init done'
 
 KAKRC_LOCAL
 
@@ -179,8 +183,23 @@ cp "$LOCAL/share/kak-lsp/rc/lsp.kak"    "$BUNDLE/share/kak/autoload/lsp/"
 cp "$LOCAL/share/kak-lsp/rc/servers.kak" "$BUNDLE/share/kak/autoload/lsp/"
 
 # ── kak-tree-sitter runtime ───────────────────────────────────────────────────
-cp -r "$LOCAL/share/kak-tree-sitter/queries"      "$BUNDLE/share/kak-tree-sitter/queries"
 cp -r "$LOCAL/share/kak-tree-sitter/completions"  "$BUNDLE/share/kak-tree-sitter/completions"
+
+# Queries: grammars repo (dev) → fetched dist (CI after mise run fetch).
+# grammars/queries/ is authoritative: contains all languages plus the kts
+# hand-tuned overrides for astro/cpp/glsl/js/etc.  In CI the grammars repo
+# is not checked out here, so we fall back to $LOCAL which has the full set
+# from the grammars release tarball (extracted by mise run fetch).
+mkdir -p "$BUNDLE/share/kak-tree-sitter/queries"
+QUERIES_GRAMMARS="$REPO/grammars/queries"
+QUERIES_FETCHED="$LOCAL/share/kak-tree-sitter/queries"
+if ls "$QUERIES_GRAMMARS"/*/highlights.scm >/dev/null 2>&1; then
+    cp -r "$QUERIES_GRAMMARS/." "$BUNDLE/share/kak-tree-sitter/queries/"
+elif [ -d "$QUERIES_FETCHED" ]; then
+    cp -r "$QUERIES_FETCHED/." "$BUNDLE/share/kak-tree-sitter/queries/"
+else
+    echo "warn: no queries found — run 'mise run fetch' or ensure grammars/queries/ is populated"
+fi
 
 # Grammars come from kgzm/grammars — flat .so files, one per language.
 # kts loads them via Source::Bundled: $XDG_DATA_HOME/kak-tree-sitter/grammars/{lang}.so
@@ -200,14 +219,15 @@ else
     echo "warn: no grammars found — run 'make' in grammars/ (Mode 1) or 'mise run fetch' (Mode 3/CI)"
 fi
 
-if [ -d "$LOCAL/share/kak-tree-sitter/kts-queries" ]; then
-    cp -r "$LOCAL/share/kak-tree-sitter/kts-queries/." "$BUNDLE/share/kak-tree-sitter/queries/"
-fi
 
 # ── summary ───────────────────────────────────────────────────────────────────
 GRAMMAR_COUNT=0
 if [ -d "$BUNDLE/share/kak-tree-sitter/grammars" ]; then
     GRAMMAR_COUNT=$(find "$BUNDLE/share/kak-tree-sitter/grammars" -name "*.so" | wc -l)
+fi
+QUERY_COUNT=0
+if [ -d "$BUNDLE/share/kak-tree-sitter/queries" ]; then
+    QUERY_COUNT=$(find "$BUNDLE/share/kak-tree-sitter/queries" -maxdepth 1 -mindepth 1 -type d | wc -l)
 fi
 
 echo ""
@@ -225,7 +245,7 @@ fi
 echo ""
 echo "    runtime:"
 printf "      %-20s %d files\n" "kak/rc (autoload)" "$(find "$BUNDLE/share/kak/rc" -name '*.kak' | wc -l)"
-printf "      %-20s %d grammars\n" "tree-sitter" "$GRAMMAR_COUNT"
+printf "      %-20s %d grammars, %d query sets\n" "tree-sitter" "$GRAMMAR_COUNT" "$QUERY_COUNT"
 echo ""
 echo "    symlink onto PATH:"
 echo "      ln -sf $BUNDLE/bin/kak ~/.local/bin/kak"

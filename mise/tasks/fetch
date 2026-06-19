@@ -69,7 +69,7 @@ fetch_component "kgzm/kak-tree-sitter" \
 fetch_component "kgzm/grammars" \
     "v${GRAMMARS_RELEASE}" \
     "grammars-${GRAMMARS_RELEASE}-${DIST_TARGET}.tar.gz" \
-    "$DIST/share/kak-tree-sitter/grammars"
+    "$DIST"
 
 echo ""
 echo "==> fetched into $DIST"

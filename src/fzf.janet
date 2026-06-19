@@ -27,8 +27,9 @@
       (string/join (map sh-quote list-cmd) " ")))
   (def cmd-str
     (string "cd " (sh-quote dir) " && "
-            list-cmd-str " | fzf "
-            (string/join (map sh-quote fzf-args) " ")))
+            list-cmd-str " | SHELL=sh fzf "
+            (string/join (map sh-quote fzf-args) " ")
+            " | sed 's/\\x1b\\[[0-9;]*[mGKHF]//g'"))
   (def p (os/spawn ["sh" "-c" cmd-str] :px {:out :pipe}))
   (def out (:read (get p :out) :all))
   (def status (:wait p))

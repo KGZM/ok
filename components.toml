@@ -26,7 +26,7 @@ release = "2026.05.21-ad5611c"
 # Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
 upstream_version = "3.2.1"
 upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile + Source::Bundled
-release = "2026.05.21-9554b7a"
+release = "2026.06.19-2d65f60"
 #
 # NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
 # Build flags: --features kak-tree-sitter/direct-unix-socket
@@ -34,4 +34,5 @@ release = "2026.05.21-9554b7a"
 [grammars]
 # GitHub repo: kgzm/grammars
 # Tree-sitter grammar .so files (215), cross-compiled per target arch.
-release = "2026.05.20-02851bc"
+release = "2026.06.19-62c331d"
+
