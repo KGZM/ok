@@ -26,7 +26,7 @@ release = "2026.05.21-ad5611c"
 # Upstream: https://git.sr.ht/~hadronized/kak-tree-sitter
 upstream_version = "3.2.1"
 upstream_commit = "00b43ef"  # our fork — adds cross-build Makefile + Source::Bundled
-release = "2026.06.19-2d65f60"
+release = "2026.07.16-ac23837"  # fix: default config uses bundled query sources
 #
 # NOTE: binary MUST be glibc (not static musl) — dlopen required for grammars.
 # Build flags: --features kak-tree-sitter/direct-unix-socket
